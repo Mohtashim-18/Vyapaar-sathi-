@@ -85,7 +85,7 @@ footer{text-align:center;padding:28px;color:#7a879a;font-size:12px}
 const $ = id => document.getElementById(id);
 const idea = $("idea");
 const customer = $("customer");
-const location = $("location");
+const locationInput = $("location");
 const budget = $("budget");
 const analyzeBtn = $("analyzeBtn");
 const loading = $("loading");
@@ -97,7 +97,7 @@ const statBudget = $("statBudget");
 function fillDemo(i,c,l,b){
   idea.value=i;
   customer.value=c;
-  location.value=l;
+  locationInput.value=l;
   budget.value=b;
 }
 
@@ -116,7 +116,7 @@ async function analyze(){
   const payload={
     idea:idea.value.trim(),
     customer:customer.value.trim(),
-    location:location.value.trim(),
+    location:locationInput.value.trim(),
     budget:budget.value.trim()
   };
 
@@ -155,7 +155,7 @@ function resetApp(){
   toolbar.style.display="none";
   idea.value="";
   customer.value="";
-  location.value="";
+  locationInput.value="";
   budget.value="";
   window.scrollTo({top:0,behavior:"smooth"});
 }
