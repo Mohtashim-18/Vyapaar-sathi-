@@ -39,7 +39,7 @@ Target customer: {d.get('customer') or 'Not specified'}
 Location: {d.get('location') or 'Not specified'}
 Investment budget: {d.get('budget') or 'Not specified'}
 Generate the JSON report."""
-    url="https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+    url="https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent"
     try:
       r=requests.post(url,params={"key":key},json={"system_instruction":{"parts":[{"text":SYSTEM}]},"contents":[{"parts":[{"text":prompt}]}],"generationConfig":{"responseMimeType":"application/json","temperature":0.35}},timeout=45)
       r.raise_for_status(); raw=r.json()["candidates"][0]["content"]["parts"][0]["text"]; data=json.loads(raw)
