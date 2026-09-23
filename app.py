@@ -44,7 +44,16 @@ Generate the JSON report."""
       r=requests.post(url,params={"key":key},json={"system_instruction":{"parts":[{"text":SYSTEM}]},"contents":[{"parts":[{"text":prompt}]}],"generationConfig":{"responseMimeType":"application/json","temperature":0.35}},timeout=45)
       r.raise_for_status(); raw=r.json()["candidates"][0]["content"]["parts"][0]["text"]; data=json.loads(raw)
       data["score"]=max(0,min(100,int(data.get("score",70))));return jsonify(data)
-    except Exception as e:return jsonify({"error":"AI API request failed. Check the Gemini API key and internet connection.","detail":str(e)[:160]}),502
+    except Exception as e:
+    print("GEMINI ERROR:", repr(e))
+    try:
+        print("GEMINI RESPONSE:", r.text[:1000])
+    except:
+        pass
+    return jsonify({
+        "error": "AI API request failed",
+        "detail": str(e)[:500]
+    }), 502
 
 if __name__=="__main__":
     port=int(os.getenv("PORT","5000"))
