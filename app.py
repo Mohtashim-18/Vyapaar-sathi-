@@ -45,15 +45,15 @@ Generate the JSON report."""
       r.raise_for_status(); raw=r.json()["candidates"][0]["content"]["parts"][0]["text"]; data=json.loads(raw)
       data["score"]=max(0,min(100,int(data.get("score",70))));return jsonify(data)
     except Exception as e:
-    print("GEMINI ERROR:", repr(e))
-    try:
-        print("GEMINI RESPONSE:", r.text[:1000])
-    except:
-        pass
-    return jsonify({
-        "error": "AI API request failed",
-        "detail": str(e)[:500]
-    }), 502
+        print("GEMINI ERROR:", repr(e))
+        try:
+            print("GEMINI RESPONSE:", r.text[:1000])
+        except:
+            pass
+        return jsonify({
+            "error": "AI API request failed",
+            "detail": str(e)[:500]
+        }), 502
 
 if __name__=="__main__":
     port=int(os.getenv("PORT","5000"))
