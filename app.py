@@ -96,6 +96,9 @@ def api_error(resp):
     except Exception:
         return f"HTTP {resp.status_code}: {resp.text[:180]}"[:240]
 
+def log_safe(label, message):
+    print(f"[Vyapaar Sathi] {label}: {message}", flush=True)
+
 def gemini_analysis(d):
     key = env("GEMINI_API_KEY")
     if not key:
@@ -124,14 +127,18 @@ Generate the structured preliminary validation report."""
             timeout=45
         )
         if not r.ok:
-            return None, "Gemini request failed: " + api_error(r)
+            err = "Gemini request failed: " + api_error(r)
+            log_safe("GEMINI_ERROR", err)
+            return None, err
 
         raw = r.json()["candidates"][0]["content"]["parts"][0]["text"]
         data = clean_json(raw)
         data["score"] = max(0, min(100, int(data.get("score", 70))))
         return data, None
     except Exception as e:
-        return None, f"Gemini error: {str(e)[:180]}"
+        err = f"Gemini error: {str(e)[:180]}"
+        log_safe("GEMINI_EXCEPTION", err)
+        return None, err
 
 def openai_analysis(d):
     key = env("OPENAI_API_KEY")
@@ -299,6 +306,31 @@ def health():
         "openai_model": env("OPENAI_MODEL") or "gpt-5.6-luna"
     })
 
+@app.get("/api/test-gemini")
+def test_gemini():
+    key = env("GEMINI_API_KEY")
+    if not key:
+        return jsonify({"ok": False, "error": "GEMINI_API_KEY is missing"}), 503
+    body = {
+        "contents": [{"parts": [{"text": "Reply with exactly: GEMINI_OK"}]}],
+        "generationConfig": {"temperature": 0}
+    }
+    try:
+        r = requests.post(
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+            params={"key": key}, json=body, timeout=30
+        )
+        if not r.ok:
+            err = api_error(r)
+            log_safe("GEMINI_TEST_ERROR", err)
+            return jsonify({"ok": False, "error": err}), 502
+        text = r.json()["candidates"][0]["content"]["parts"][0]["text"]
+        return jsonify({"ok": True, "response": text[:80]})
+    except Exception as e:
+        err = str(e)[:200]
+        log_safe("GEMINI_TEST_EXCEPTION", err)
+        return jsonify({"ok": False, "error": err}), 502
+
 @app.post("/api/analyze")
 def analyze():
     d = request.get_json(silent=True) or {}
@@ -331,7 +363,8 @@ def analyze():
 
     g, gerr = gemini_analysis(d)
     if g is None:
-        return jsonify({"error": "Gemini analysis failed", "detail": gerr}), 502
+        log_safe("DEEP_VALIDATION", gerr or "Unknown Gemini error")
+        return jsonify({"error": "Gemini analysis failed", "detail": gerr or "Unknown Gemini error"}), 502
 
     o, oerr = openai_analysis(d)
     if o is None:
