@@ -114,8 +114,7 @@ Generate the structured preliminary validation report."""
         "system_instruction": {"parts": [{"text": SYSTEM}]},
         "contents": [{"parts": [{"text": prompt}]}],
         "generationConfig": {
-            "responseMimeType": "application/json",
-            "temperature": 0.25
+            "responseMimeType": "application/json"
         }
     }
 
@@ -313,7 +312,7 @@ def test_gemini():
         return jsonify({"ok": False, "error": "GEMINI_API_KEY is missing"}), 503
     body = {
         "contents": [{"parts": [{"text": "Reply with exactly: GEMINI_OK"}]}],
-        "generationConfig": {"temperature": 0}
+        "generationConfig": {}
     }
     try:
         r = requests.post(
