@@ -340,6 +340,42 @@ def test_gemini():
         log_safe("GEMINI_TEST_PARSE_ERROR", err)
         return jsonify({"ok": False, "error": err}), 502
 
+@app.get("/api/test-openai")
+def test_openai():
+    key = env("OPENAI_API_KEY")
+    if not key:
+        return jsonify({"ok": False, "error": "OPENAI_API_KEY is missing"}), 503
+
+    model = env("OPENAI_MODEL") or "gpt-5.6-luna"
+    try:
+        r = requests.post(
+            "https://api.openai.com/v1/responses",
+            headers={
+                "Authorization": f"Bearer {key}",
+                "Content-Type": "application/json"
+            },
+            json={
+                "model": model,
+                "input": "Reply with exactly: OPENAI_OK"
+            },
+            timeout=20
+        )
+        if not r.ok:
+            return jsonify({"ok": False, "model": model, "error": api_error(r)}), 502
+        j = r.json()
+        text = j.get("output_text") or ""
+        if not text:
+            for item in j.get("output", []):
+                for part in item.get("content", []):
+                    if part.get("type") in ("output_text", "text") and part.get("text"):
+                        text = part["text"]
+                        break
+                if text:
+                    break
+        return jsonify({"ok": True, "model": model, "response": text[:80]})
+    except Exception as e:
+        return jsonify({"ok": False, "model": model, "error": str(e)[:240]}), 502
+
 @app.post("/api/analyze")
 def analyze():
     d = request.get_json(silent=True) or {}
