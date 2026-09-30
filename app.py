@@ -218,6 +218,56 @@ Do not fabricate sources."""
         log_safe(f"{label}_PARSE_ERROR", err)
         return None, err
 
+def competitor_search(d):
+    """Run live public-web competitor research separately so the main demo never waits on it."""
+    key = env("GEMINI_API_KEY")
+    if not key:
+        return {"competitors": [], "competitor_sources": [], "_notice": "Gemini is not configured."}
+
+    system = """You are the competitor-research module of Vyapaar Sathi.
+Use Google Search grounding to identify CURRENT public information about 3 to 5 competitors or substitutes relevant to the exact business idea, customer and location.
+Do not invent names, prices, ratings or facts. Prefer official websites, Google/Maps-visible information, established marketplaces/directories and reputable local sources.
+Clearly distinguish direct competitors from indirect substitutes.
+If a price or fact cannot be verified, write 'Not publicly verified'.
+Return ONLY valid JSON with exactly these fields:
+competitors: array of objects with name, type, offer, price, differentiation
+competitor_sources: array of objects with title, url"""
+    prompt = f"""Business idea: {d.get('idea') or 'Not specified'}
+Target customer: {d.get('customer') or 'Not specified'}
+Location: {d.get('location') or 'Not specified'}
+Find current public competitor/alternative signals for this market."""
+    body = {
+        "system_instruction": {"parts": [{"text": system}]},
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {"responseMimeType": "application/json"},
+        "tools": [{"google_search": {}}]
+    }
+    r, err = gemini_request(body, key, label="COMPETITOR_SEARCH", attempts=1, timeout=6)
+    if r is None:
+        return {"competitors": [], "competitor_sources": [], "_notice": err or "Live competitor lookup timed out."}
+    try:
+        raw = r.json()["candidates"][0]["content"]["parts"][0]["text"]
+        data = clean_json(raw)
+        comps = data.get("competitors", []) if isinstance(data, dict) else []
+        safe = []
+        for item in comps[:6]:
+            if isinstance(item, dict) and item.get("name"):
+                safe.append({
+                    "name": str(item.get("name", ""))[:100],
+                    "type": str(item.get("type", ""))[:60],
+                    "offer": str(item.get("offer", ""))[:240],
+                    "price": str(item.get("price", "Not publicly verified"))[:100],
+                    "differentiation": str(item.get("differentiation", ""))[:240]
+                })
+        srcs = data.get("competitor_sources", []) if isinstance(data, dict) else []
+        sources = []
+        for item in srcs[:8]:
+            if isinstance(item, dict) and str(item.get("url", "")).startswith(("http://", "https://")):
+                sources.append({"title": str(item.get("title", "Source"))[:120], "url": str(item.get("url", ""))[:500]})
+        return {"competitors": safe, "competitor_sources": sources}
+    except Exception as e:
+        return {"competitors": [], "competitor_sources": [], "_notice": f"Competitor response could not be parsed: {str(e)[:120]}"}
+
 def local_synthesis(gemini, critic):
     def val(obj, key, default=""):
         return obj.get(key, default) if isinstance(obj, dict) else default
@@ -301,6 +351,15 @@ def test_gemini():
         err = f"Gemini response parsing error: {str(e)[:180]}"
         return jsonify({"ok": False, "error": err}), 502
 
+@app.post("/api/competitors")
+def competitors():
+    d = request.get_json(silent=True) or {}
+    if not isinstance(d, dict) or not d.get("idea"):
+        return jsonify({"error": "Business idea is required"}), 400
+    result = competitor_search(d)
+    result["_live_competitor_check"] = True
+    return jsonify(result)
+
 @app.post("/api/analyze")
 def analyze():
     d = request.get_json(silent=True) or {}
@@ -312,15 +371,22 @@ def analyze():
     mode = d.get("mode", "quick")
 
     if mode != "deep":
-        data, err = gemini_analysis(d, "market")
+        # Main report is intentionally independent of live competitor search.
+        # This keeps the demo responsive; /api/competitors runs separately.
+        core = dict(d)
+        core["include_competitors"] = False
+        data, err = gemini_analysis(core, "market")
         if data is None:
             data = fallback(d)
             data["_provider"] = "Vyapaar Sathi Local Validation"
-            data["_notice"] = "Gemini was temporarily slow; Vyapaar Sathi switched to its instant validation layer."
+            data["_notice"] = "AI response was delayed; Vyapaar Sathi switched to its instant validation layer."
         else:
             data["_provider"] = "Gemini"
-            data["_live_competitor_check"] = bool(d.get("include_competitors"))
+        data["competitors"] = []
+        data["competitor_sources"] = []
+        data["_live_competitor_check"] = False
         return jsonify(data)
+
 
     if not env("GEMINI_API_KEY"):
         return jsonify({"error": "Gemini API key is not configured.", "gemini_configured": False}), 503
