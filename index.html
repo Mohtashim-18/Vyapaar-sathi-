@@ -73,58 +73,34 @@ textarea{height:102px;resize:vertical}input:focus,textarea:focus{border-color:#2
 </main>
 
 <script>
-function load(a,c,l,b){idea.value=a;customer.value=c;location.value=l;budget.value=b}
-function clean(x){return String(x??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]) )}
-function fallback(a,c,l,b){return {market:`Targets ${c} in ${l}. Validate demand with a small local pilot before committing the full budget.`,problem:`The customer may have a convenience, affordability or quality gap. The exact pain point should be confirmed through interviews and pilot usage.`,value:`A focused, affordable service with consistent quality and convenient delivery can create value if customers are willing to pay.`,pricing:`Test 2–3 price points against local alternatives and track contribution margin. Planned budget: ${b}.`,strength:`Clear customer segment, understandable problem and a concept that can be piloted on a small scale.`,weakness:`Demand, repeat usage and unit economics are not yet proven.`,opportunity:`Campus, hostel, WhatsApp and referral channels can provide low-cost early validation.`,threat:`Existing local alternatives, price sensitivity and service-quality issues may affect adoption.`,marketing:`Run a small pilot, collect reviews, use student groups and referrals, and measure repeat customers.`,risks:`Do not deploy the full budget initially. Measure acquisition cost, margin, repeat rate and complaints.`,score:72,scoretext:`Promising for a pilot; evidence from real customers is still required.`,recommendation:`Run a 7–14 day pilot, test pricing, measure repeat demand and unit economics, then decide whether to scale.`}}
-function norm(d){return {market:d.market||'',competitors:d.competitors||d.competitor_analysis||d.competitor_landscape||'',competitor_sources:d.competitor_sources||[],problem:d.problem||'',value:d.value||d.value_proposition||'',pricing:d.pricing||d.pricing_revenue||'',strength:d.strength||d.strengths||'',weakness:d.weakness||d.weaknesses||'',opportunity:d.opportunity||d.opportunities||'',threat:d.threat||d.threats||'',marketing:d.marketing||'',risks:d.risks||'',score:d.score||72,scoretext:d.scoretext||d.score_text||'',recommendation:d.recommendation||d.final_recommendation||''}}
-function show(d,source){
-d=norm(d);score.textContent=d.score+'/100';
-let a=[['🎯 Market',d.market],['Problem',d.problem],['💎 Value Proposition',d.value],['💰 Pricing & Revenue',d.pricing],['💪 Strength',d.strength],['⚠️ Weakness',d.weakness],['🌱 Opportunity',d.opportunity],['🛡️ Threat',d.threat],['📣 Marketing',d.marketing],['Risk Signals',d.risks]];
-let competitors=Array.isArray(d.competitors)?d.competitors:[];
-let competitorHTML=competitors.length
-? `<div class="box full"><h3>🏪 Live Competitor Landscape</h3>
-<p style="margin-bottom:12px;color:#68768b">Fresh public-web signals for the selected location. Verify prices/availability before making a business decision.</p>
-<div style="display:grid;gap:10px">${competitors.map(c=>`<div style="border:1px solid #e3e9f2;border-radius:12px;padding:12px;background:#f9fbff">
-<b>${clean(c.name)}</b> <span style="font-size:11px;color:#6d7b90">${clean(c.type)}</span>
-<p style="margin-top:5px">${clean(c.offer)}</p>
-<p><b>Price:</b> ${clean(c.price)} &nbsp; <b>Gap:</b> ${clean(c.differentiation)}</p>
-</div>`).join('')}</div>
-${Array.isArray(d.competitor_sources)&&d.competitor_sources.length?`<p style="margin-top:12px"><b>Sources:</b> ${d.competitor_sources.map(s=>`<a href="${clean(s.url)}" target="_blank" rel="noopener">${clean(s.title)}</a>`).join(' · ')}</p>`:''}
-</div>`
-: `<div class="box full"><h3>🏪 Competitor Landscape</h3><p>${clean(d.competitors||'No verified competitor data returned. Run the analysis again to perform the live competitor check.')}</p></div>`;
-report.innerHTML=competitorHTML+a.map(x=>`<div class="box"><h3>${x[0]}</h3><p>${clean(x[1])}</p></div>`).join('')+
-`<div class="action full"><h3>🚀 Decision Focus</h3><p>${clean(d.scoretext)}</p><br><h3>7–14 Day Validation Action</h3><p>${clean(d.recommendation)}</p></div>`;
-results.style.display='block';results.scrollIntoView({behavior:'smooth'});
-}
+const $ = id => document.getElementById(id);
+const ideaEl=$('idea'), customerEl=$('customer'), locationEl=$('location'), budgetEl=$('budget');
+const btnEl=$('btn'), statusEl=$('status'), statusTextEl=$('st'), resultsEl=$('results'), reportEl=$('report'), scoreEl=$('score');
+function load(a,c,l,b){ideaEl.value=a;customerEl.value=c;locationEl.value=l;budgetEl.value=b}
+function clean(x){return String(x??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
+function fallback(a,c,l,b){return {market:`Targets ${c} in ${l}. Validate demand with a small local pilot before committing the full budget.`,problem:`The customer may have a convenience, affordability or quality gap. Confirm the exact pain point through interviews and pilot usage.`,value:`A focused, affordable service with consistent quality and convenient delivery can create value if customers are willing to pay.`,pricing:`Test 2–3 price points against local alternatives and track contribution margin. Planned budget: ${b}.`,strength:`Clear customer segment, understandable problem and a concept that can be piloted on a small scale.`,weakness:`Demand, repeat usage and unit economics are not yet proven.`,opportunity:`Campus, hostel, WhatsApp and referral channels can provide low-cost early validation.`,threat:`Existing local alternatives, price sensitivity and service-quality issues may affect adoption.`,marketing:`Run a small pilot, collect reviews, use student groups and referrals, and measure repeat customers.`,risks:`Do not deploy the full budget initially. Measure acquisition cost, margin, repeat rate and complaints.`,score:72,scoretext:`Promising for a pilot; evidence from real customers is still required.`,recommendation:`Run a 7–14 day pilot, test pricing, measure repeat demand and unit economics, then decide whether to scale.`}}
+function norm(d){return {market:d.market||'',competitors:d.competitors||[],competitor_sources:d.competitor_sources||[],problem:d.problem||'',value:d.value||d.value_proposition||'',pricing:d.pricing||d.pricing_revenue||'',strength:d.strength||d.strengths||'',weakness:d.weakness||d.weaknesses||'',opportunity:d.opportunity||d.opportunities||'',threat:d.threat||d.threats||'',marketing:d.marketing||'',risks:d.risks||'',score:d.score||72,scoretext:d.scoretext||d.score_text||'',recommendation:d.recommendation||d.final_recommendation||''}}
+function cards(d){return [['🎯 Market',d.market],['Problem',d.problem],['💎 Value Proposition',d.value],['💰 Pricing & Revenue',d.pricing],['💪 Strength',d.strength],['⚠️ Weakness',d.weakness],['🌱 Opportunity',d.opportunity],['🛡️ Threat',d.threat],['📣 Marketing',d.marketing],['Risk Signals',d.risks]]}
 function renderCompetitors(list,sources,notice){
-  let box=document.getElementById('competitorBox');
-  if(!box)return;
-  let arr=Array.isArray(list)?list:[];
-  if(arr.length){
-    box.innerHTML=`<h3>🏪 Live Competitor Landscape</h3><p style="margin-bottom:12px;color:#68768b">Fresh public-web signals for the selected location. Verify prices and availability before making a business decision.</p><div style="display:grid;gap:10px">${arr.map(c=>`<div style="border:1px solid #e3e9f2;border-radius:12px;padding:12px;background:#f9fbff"><b>${clean(c.name)}</b> <span style="font-size:11px;color:#6d7b90">${clean(c.type)}</span><p style="margin-top:5px">${clean(c.offer)}</p><p><b>Price:</b> ${clean(c.price)} &nbsp; <b>Gap:</b> ${clean(c.differentiation)}</p></div>`).join('')}</div>${Array.isArray(sources)&&sources.length?`<p style="margin-top:12px"><b>Sources:</b> ${sources.map(s=>`<a href="${clean(s.url)}" target="_blank" rel="noopener">${clean(s.title)}</a>`).join(' · ')}</p>`:''}`;
-  }else{
-    box.innerHTML=`<h3>🏪 Competitor Landscape</h3><p>${clean(notice||'No verified competitor data returned. You can still use the validation report above.')}</p>`;
-  }
+ const box=$('competitorBox'); if(!box)return; const arr=Array.isArray(list)?list:[];
+ if(arr.length){box.innerHTML=`<h3>🏪 Live Competitor Landscape</h3><p style="margin-bottom:12px;color:#68768b">Fresh public-web signals for the selected location. Verify prices and availability before making a business decision.</p><div style="display:grid;gap:10px">${arr.map(c=>`<div style="border:1px solid #e3e9f2;border-radius:12px;padding:12px;background:#f9fbff"><b>${clean(c.name)}</b> <span style="font-size:11px;color:#6d7b90">${clean(c.type)}</span><p style="margin-top:5px">${clean(c.offer)}</p><p><b>Price:</b> ${clean(c.price)} &nbsp; <b>Gap:</b> ${clean(c.differentiation)}</p></div>`).join('')}</div>${Array.isArray(sources)&&sources.length?`<p style="margin-top:12px"><b>Sources:</b> ${sources.map(s=>`<a href="${clean(s.url)}" target="_blank" rel="noopener">${clean(s.title)}</a>`).join(' · ')}</p>`:''}`}
+ else box.innerHTML=`<h3>🏪 Competitor Landscape</h3><p>${clean(notice||'Live competitor lookup was unavailable. The rest of the validation report is ready.')}</p>`;
 }
-function showPreview(p){
-  let d=fallback(p.idea,p.customer,p.location,p.budget);
-  score.textContent=d.score+'/100';
-  let a=[['🎯 Market',d.market],['Problem',d.problem],['💎 Value Proposition',d.value],['💰 Pricing & Revenue',d.pricing],['💪 Strength',d.strength],['⚠️ Weakness',d.weakness],['🌱 Opportunity',d.opportunity],['🛡️ Threat',d.threat],['📣 Marketing',d.marketing],['Risk Signals',d.risks]];
-  report.innerHTML=`<div id="competitorBox" class="box full"><h3>🏪 Live Competitor Landscape</h3><p>🔎 Checking current public competitor signals separately…</p></div>`+a.map(x=>`<div class="box"><h3>${x[0]}</h3><p>${clean(x[1])}</p></div>`).join('')+`<div class="action full"><h3>🚀 Decision Focus</h3><p>${clean(d.scoretext)}</p><br><h3>7–14 Day Validation Action</h3><p>${clean(d.recommendation)}</p></div>`;
-  results.style.display='block';
-  results.scrollIntoView({behavior:'smooth'});
-}
+function showReport(raw){const d=norm(raw);scoreEl.textContent=d.score+'/100';reportEl.innerHTML=`<div id="competitorBox" class="box full"><h3>🏪 Live Competitor Landscape</h3><p>🔎 Checking current public competitor signals separately…</p></div>`+cards(d).map(x=>`<div class="box"><h3>${x[0]}</h3><p>${clean(x[1])}</p></div>`).join('')+`<div class="action full"><h3>🚀 Decision Focus</h3><p>${clean(d.scoretext)}</p><br><h3>7–14 Day Validation Action</h3><p>${clean(d.recommendation)}</p></div>`;resultsEl.style.display='block';}
+function showPreview(p){showReport(fallback(p.idea,p.customer,p.location,p.budget));resultsEl.scrollIntoView({behavior:'smooth'});}
 async function analyze(){
-  let p={idea:idea.value.trim(),customer:customer.value.trim(),location:location.value.trim(),budget:budget.value.trim(),mode:'quick'};
-  if(!p.idea){alert('Please enter a business idea.');return}
-  btn.disabled=true;status.classList.add('show');st.textContent='Preparing your validation report…';
-  showPreview(p);
-  // Do not make the user wait for AI. Both calls run independently and update the report when ready.
-  const core=fetch('/api/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)}).then(async r=>{let d=await r.json();if(!r.ok||d.error)throw Error(d.error||('Server error '+r.status));return d;}).catch(e=>null);
-  const comp=fetch('/api/competitors',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)}).then(async r=>{let d=await r.json();if(!r.ok||d.error)throw Error(d.error||('Server error '+r.status));return d;}).catch(e=>({competitors:[],competitor_sources:[],_notice:'Live competitor search is taking longer than the demo window. The rest of the validation report is still ready.'}));
-  core.then(d=>{if(!d)return; show(d,'AI analysis • structured validation'); let box=document.getElementById('competitorBox'); if(!box){let el=document.createElement('div');el.id='competitorBox';el.className='box full';report.prepend(el)} renderCompetitors([],[], '🔎 Live competitor check is running separately…');});
-  comp.then(d=>{renderCompetitors(d.competitors,d.competitor_sources,d._notice);});
-  Promise.all([core,comp]).finally(()=>{btn.disabled=false;st.textContent='Validation ready';setTimeout(()=>status.classList.remove('show'),700);});
+ const p={idea:ideaEl.value.trim(),customer:customerEl.value.trim(),location:locationEl.value.trim(),budget:budgetEl.value.trim(),mode:'quick'};
+ if(!p.idea){alert('Please enter a business idea.');return}
+ btnEl.disabled=true;statusEl.classList.add('show');statusTextEl.textContent='Preparing your validation report…';
+ // IMPORTANT: preview is synchronous, so the page never waits for an API response.
+ showPreview(p);
+ const controller=new AbortController(); const timer=setTimeout(()=>controller.abort(),5000);
+ const core=fetch('/api/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(p),signal:controller.signal}).then(async r=>{const d=await r.json();if(!r.ok||d.error)throw Error(d.error||('Server error '+r.status));return d}).catch(()=>null);
+ const compController=new AbortController(); const compTimer=setTimeout(()=>compController.abort(),5000);
+ const comp=fetch('/api/competitors',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(p),signal:compController.signal}).then(async r=>{const d=await r.json();if(!r.ok||d.error)throw Error(d.error||('Server error '+r.status));return d}).catch(()=>({competitors:[],competitor_sources:[],_notice:'Live competitor search is taking longer than the demo window. The validation report is still ready.'}));
+ core.then(d=>{if(d){showReport(d);renderCompetitors([],[], '🔎 Live competitor check is running separately…');}});
+ comp.then(d=>renderCompetitors(d.competitors,d.competitor_sources,d._notice));
+ Promise.allSettled([core,comp]).finally(()=>{clearTimeout(timer);clearTimeout(compTimer);btnEl.disabled=false;statusTextEl.textContent='Validation ready';setTimeout(()=>statusEl.classList.remove('show'),700);});
 }
 </script>
 </body>
