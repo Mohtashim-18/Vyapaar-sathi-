@@ -92,7 +92,7 @@ def api_error(resp):
 def log_safe(label, message):
     print(f"[Vyapaar Sathi] {label}: {message}", flush=True)
 
-def gemini_request(body, key, label="GEMINI", attempts=2, timeout=25):
+def gemini_request(body, key, label="GEMINI", attempts=1, timeout=8):
     # Fallback order keeps the free demo resilient to temporary model load.
     model_candidates = [
         "gemini-3.8-flash",
@@ -175,7 +175,7 @@ Generate the structured preliminary validation report independently."""
 
     r, err = gemini_request(
         body, key, label=label,
-        attempts=1, timeout=12
+        attempts=1, timeout=8
     )
     if r is None:
         return None, err
@@ -262,7 +262,7 @@ def test_gemini():
         "generationConfig": {}
     }
 
-    r, err = gemini_request(body, key, label="GEMINI_TEST", attempts=2, timeout=30)
+    r, err = gemini_request(body, key, label="GEMINI_TEST", attempts=1, timeout=20)
     if r is None:
         return jsonify({"ok": False, "error": err}), 502
 
@@ -331,7 +331,8 @@ def analyze():
         "synthesis": synthesis,
         "_providers": ["Gemini Market Analyst", "Gemini Business Critic"],
         "_synthesis": "Vyapaar Sathi local synthesis",
-        "_cost_mode": "zero-cost API path; no OpenAI credits required"
+        "_cost_mode": "zero-cost API path; no OpenAI credits required",
+        "_performance": "Two Gemini perspectives run in parallel; synthesis is local for faster demo response."
     })
 
 if __name__ == "__main__":
