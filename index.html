@@ -30,6 +30,7 @@ button{border:0;border-radius:10px;padding:12px 16px;font-weight:800;cursor:poin
 .note{margin-top:14px;padding:12px;background:#fff8e8;border-radius:10px;color:#745615;font-size:12px}
 footer{text-align:center;padding:28px;color:#7a879a;font-size:12px}
 @media(max-width:850px){.grid,.topstats,.resultgrid{grid-template-columns:1fr}.wide{grid-column:auto}.hero h1{font-size:37px}.team{display:none}}
+.modebox{margin-top:16px;border:1px solid #dce5f3;border-radius:13px;padding:12px;background:#f8faff}.modetitle{font-size:12px;font-weight:900;margin-bottom:8px;color:#334968}.mode{display:grid;grid-template-columns:18px 1fr;grid-template-rows:auto auto;margin:7px 0;padding:9px;border-radius:9px;background:white;cursor:pointer}.mode input{grid-row:1/3;margin-top:3px}.mode span{font-size:13px;font-weight:800;color:#20395f}.mode small{font-size:11px;color:#718097}.mode.deep{border:1px solid #cfdcff}.three{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.three ul{margin:8px 0;padding-left:18px}.three li{margin:5px 0}.validation{background:#fbfdff}.deephead{display:flex;justify-content:space-between;align-items:center;gap:10px}.deephead h3{margin-bottom:4px}.deephead p{margin:0;color:#718097;font-size:12px}.pill{background:#eaf0ff;color:#315bd6;padding:7px 10px;border-radius:20px;font-size:11px;font-weight:900}.ai-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0}.aiop{padding:14px;border-radius:12px;background:#f6f9ff;border:1px solid #e0e7f4}.aiop h4{margin:0 0 7px}.consensus{padding:16px;border-radius:13px;background:#eefaf7;border:1px solid #d7eee8}.consensus h4{margin-top:0}.consensus .three{margin-top:12px}@media(max-width:850px){.three,.ai-grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -43,7 +44,7 @@ footer{text-align:center;padding:28px;color:#7a879a;font-size:12px}
 <label>Target Customer</label><input id="customer" placeholder="e.g. Hostel students">
 <label>Location</label><input id="location" placeholder="e.g. Lucknow, Uttar Pradesh">
 <label>Investment Budget</label><input id="budget" placeholder="e.g. ₹1,00,000">
-<button class="primary" id="analyzeBtn" onclick="analyze()">Analyze with AI →</button>
+<div class="modebox"><div class="modetitle">Analysis Mode</div><label class="mode"><input type="radio" name="mode" value="quick" checked> <span>⚡ Quick Analysis</span><small>Fast single-AI report</small></label><label class="mode deep"><input type="radio" name="mode" value="deep"> <span>🧠 Deep Validation</span><small>Gemini + OpenAI + final synthesis</small></label></div><button class="primary" id="analyzeBtn" onclick="analyze()">Analyze with AI →</button>
 </div>
 <div class="quick"><h3>⚡ Judge Mode</h3><p>Ask a judge for <b>any business idea</b>. Use the quick examples below or type their idea live.</p>
 <div class="examples">
@@ -63,7 +64,7 @@ footer{text-align:center;padding:28px;color:#7a879a;font-size:12px}
 <div class="stat"><small>Preliminary Score</small><div class="num" id="score">—</div><div class="gauge"><div class="fill" id="fill"></div></div></div>
 <div class="stat"><small>Location</small><div class="num" id="statLocation" style="font-size:20px">—</div></div>
 <div class="stat"><small>Budget</small><div class="num" id="statBudget" style="font-size:20px">—</div></div>
-<div class="stat"><small>Analysis</small><div class="num" style="font-size:20px;color:#10a77d">AI</div></div>
+<div class="stat"><small>Analysis</small><div class="num" id="analysisMode" style="font-size:20px;color:#10a77d">AI</div></div>
 </div>
 <div class="resultgrid">
 <div class="card"><h3>🎯 Target Market</h3><p id="market"></p></div>
@@ -75,6 +76,8 @@ footer{text-align:center;padding:28px;color:#7a879a;font-size:12px}
 <div class="card"><h3>⚠️ Business Risks</h3><p id="risks"></p></div>
 <div class="card"><h3>🤖 Assessment</h3><p id="scoretext"></p></div>
 <div class="card"><h3>🚀 AI Recommendation</h3><p id="recommendation"></p></div>
+<div class="card wide validation"><h3>🧪 What Must Be Validated</h3><div class="three"><div><b>Assumptions</b><ul id="assumptions"></ul></div><div><b>Customer Questions</b><ul id="validation_questions"></ul></div><div><b>7-Day Action Plan</b><ul id="action_plan"></ul></div></div></div>
+<div class="card wide" id="deepSection" style="display:none"><div class="deephead"><div><h3>🧠 Deep Validation — Multi-AI Review</h3><p>Two independent AI perspectives are compared before the final recommendation.</p></div><span class="pill">Gemini + OpenAI</span></div><div class="ai-grid"><div class="aiop"><h4>🟢 Gemini · Market Analyst</h4><p id="geminiSummary"></p></div><div class="aiop"><h4>🔵 OpenAI · Business Critic</h4><p id="openaiSummary"></p></div></div><div class="consensus"><h4>🤝 AI Consensus</h4><p id="consensus"></p><div class="three"><div><b>Common Strengths</b><ul id="common_strengths"></ul></div><div><b>Common Concerns</b><ul id="common_concerns"></ul></div><div><b>Key Disagreement</b><p id="key_disagreement"></p></div></div><div class="three"><div><b>Decision Focus</b><ul id="decision_focus"></ul></div><div><b>Final Action Plan</b><ul id="final_action_plan"></ul></div><div><b>Final Recommendation</b><p id="final_recommendation"></p></div></div></div></div>
 </div>
 <div class="note">⚠️ Preliminary AI analysis only. Real customer interviews, competitor research and market validation are required before investment.</div>
 </div>
@@ -106,48 +109,35 @@ function put(id,v){
   if(el) el.textContent=v||"Not available";
 }
 
+function list(id,arr){
+  const el=$(id); if(!el) return; el.innerHTML='';
+  (Array.isArray(arr)?arr:[]).forEach(x=>{const li=document.createElement('li');li.textContent=x;el.appendChild(li);});
+}
+function selectedMode(){return document.querySelector('input[name="mode"]:checked')?.value||'quick'}
+
 async function analyze(){
   if(!idea.value.trim()){alert("Enter a business idea first.");return}
-  analyzeBtn.disabled=true;
-  loading.style.display="block";
-  results.style.display="none";
-  toolbar.style.display="none";
-
-  const payload={
-    idea:idea.value.trim(),
-    customer:customer.value.trim(),
-    location:locationInput.value.trim(),
-    budget:budget.value.trim()
-  };
-
+  const mode=selectedMode();
+  analyzeBtn.disabled=true; loading.style.display="block"; results.style.display="none"; toolbar.style.display="none";
+  loading.innerHTML=mode==='deep' ? '🧠 Running Deep Validation <span class="dots">•••</span><br><small>Gemini analyst → OpenAI critic → Vyapaar Sathi synthesis</small>' : '⚡ AI is analysing the idea <span class="dots">•••</span><br><small>Understanding context → generating insights → formatting report</small>';
+  const payload={idea:idea.value.trim(),customer:customer.value.trim(),location:locationInput.value.trim(),budget:budget.value.trim(),mode};
   try{
-    const r=await fetch("/api/analyze",{
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify(payload)
-    });
-    const d=await r.json();
-    if(!r.ok) throw new Error(d.error||"AI request failed");
-
-    ["market","problem","value","pricing","strength","weakness","opportunity","threat","marketing","risks","scoretext","recommendation"]
-      .forEach(k=>put(k,d[k]));
-
-    const score=Math.max(0,Math.min(100,Number(d.score)||70));
-    $("score").textContent=score+"/100";
-    $("fill").style.width=score+"%";
-    statLocation.textContent=payload.location||"Not set";
-    statBudget.textContent=payload.budget||"Not set";
-
-    loading.style.display="none";
-    toolbar.style.display="flex";
-    results.style.display="block";
-    results.scrollIntoView({behavior:"smooth"});
-  }catch(e){
-    loading.style.display="none";
-    alert(e.message);
-  }finally{
-    analyzeBtn.disabled=false;
-  }
+    const r=await fetch('/api/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    const d=await r.json(); if(!r.ok) throw new Error(d.error||'AI request failed');
+    const base=mode==='deep'?d.gemini:d;
+    ['market','problem','value','pricing','strength','weakness','opportunity','threat','marketing','risks','scoretext','recommendation'].forEach(k=>put(k,base[k]));
+    list('assumptions',base.assumptions); list('validation_questions',base.validation_questions); list('action_plan',base.action_plan);
+    const score=Math.max(0,Math.min(100,Number(base.score)||70)); $('score').textContent=score+'/100'; $('fill').style.width=score+'%';
+    statLocation.textContent=payload.location||'Not set'; statBudget.textContent=payload.budget||'Not set';
+    $('analysisMode').textContent=mode==='deep'?'DEEP':'QUICK';
+    if(mode==='deep'){
+      $('deepSection').style.display='block';
+      put('geminiSummary',d.gemini.recommendation); put('openaiSummary',d.openai.recommendation);
+      put('consensus',d.synthesis.consensus); list('common_strengths',d.synthesis.common_strengths); list('common_concerns',d.synthesis.common_concerns);
+      put('key_disagreement',d.synthesis.key_disagreement); list('decision_focus',d.synthesis.decision_focus); list('final_action_plan',d.synthesis.final_action_plan); put('final_recommendation',d.synthesis.final_recommendation);
+    } else {$('deepSection').style.display='none'}
+    loading.style.display='none'; toolbar.style.display='flex'; results.style.display='block'; results.scrollIntoView({behavior:'smooth'});
+  }catch(e){loading.style.display='none';alert(e.message)}finally{analyzeBtn.disabled=false}
 }
 
 function resetApp(){
