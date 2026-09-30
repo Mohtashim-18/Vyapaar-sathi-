@@ -175,7 +175,7 @@ Generate the structured preliminary validation report independently."""
 
     r, err = gemini_request(
         body, key, label=label,
-        attempts=1, timeout=15
+        attempts=1, timeout=6
     )
     if r is None:
         return None, err
@@ -287,8 +287,8 @@ def analyze():
         data, err = gemini_analysis(d, "market")
         if data is None:
             data = fallback(d)
-            data["_provider"] = "Fallback"
-            data["_notice"] = err
+            data["_provider"] = "Vyapaar Sathi Local Validation"
+            data["_notice"] = "Gemini response was unavailable within the demo timeout; local validation layer used."
         else:
             data["_provider"] = "Gemini"
         return jsonify(data)
@@ -300,7 +300,12 @@ def analyze():
     # one Gemini call + a transparent local critic/synthesis layer.
     market, merr = gemini_analysis(d, "market")
     if market is None:
-        return jsonify({"error": "Gemini analysis failed", "detail": merr}), 502
+        # Fast local fallback: the demo still produces a structured validation
+        # report when Gemini is temporarily slow/unavailable.
+        market = fallback(d)
+        market["_provider"] = "Vyapaar Sathi Local Validation"
+        market["_notice"] = "Gemini response was unavailable within the demo timeout; local validation layer used."
+        merr = None
 
     critic = {
         "market": market.get("market", ""),
@@ -375,7 +380,7 @@ def analyze():
         "_providers": ["Gemini AI Analyst", "Vyapaar Sathi Business Critic"],
         "_synthesis": "Vyapaar Sathi structured validation layer",
         "_cost_mode": "zero-cost API path; no OpenAI credits required",
-        "_performance": "Single Gemini call + local validation/synthesis for fast live demos."
+        "_performance": "Single Gemini call with a 6-second timeout + instant local validation fallback."
     })
 
 if __name__ == "__main__":
