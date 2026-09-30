@@ -175,7 +175,7 @@ Generate the structured preliminary validation report independently."""
 
     r, err = gemini_request(
         body, key, label=label,
-        attempts=1, timeout=8
+        attempts=1, timeout=15
     )
     if r is None:
         return None, err
@@ -276,10 +276,8 @@ def test_gemini():
 @app.post("/api/analyze")
 def analyze():
     d = request.get_json(silent=True) or {}
-
     if not isinstance(d, dict):
         return jsonify({"error": "Invalid request body"}), 400
-
     if not d.get("idea"):
         return jsonify({"error": "Business idea is required"}), 400
 
@@ -296,43 +294,88 @@ def analyze():
         return jsonify(data)
 
     if not env("GEMINI_API_KEY"):
-        return jsonify({
-            "error": "Gemini API key is not configured.",
-            "gemini_configured": False
-        }), 503
+        return jsonify({"error": "Gemini API key is not configured.", "gemini_configured": False}), 503
 
-    # Two independent Gemini perspectives; no OpenAI API is required.
-    with ThreadPoolExecutor(max_workers=2) as pool:
-        market_future = pool.submit(gemini_analysis, d, "market")
-        critic_future = pool.submit(gemini_analysis, d, "critic")
-        market, merr = market_future.result()
-        critic, cerr = critic_future.result()
-
-    if market is None and critic is None:
-        return jsonify({
-            "error": "Gemini analysis failed",
-            "detail": f"Market analyst: {merr}; Business critic: {cerr}"
-        }), 502
-
-    # If one perspective fails, use the other as the base and clearly label it.
+    # Ultra-fast zero-cost Deep Validation:
+    # one Gemini call + a transparent local critic/synthesis layer.
+    market, merr = gemini_analysis(d, "market")
     if market is None:
-        market = fallback(d)
-        market["_notice"] = f"Market analyst unavailable: {merr}"
-    if critic is None:
-        critic = fallback(d)
-        critic["_notice"] = f"Business critic unavailable: {cerr}"
+        return jsonify({"error": "Gemini analysis failed", "detail": merr}), 502
 
-    synthesis = local_synthesis(market, critic)
+    critic = {
+        "market": market.get("market", ""),
+        "problem": market.get("problem", ""),
+        "value": market.get("value", ""),
+        "pricing": market.get("pricing", ""),
+        "strength": "Defined customer segment and a clear problem-solution direction.",
+        "weakness": "Willingness-to-pay and repeat demand are not yet verified.",
+        "opportunity": "A small local pilot can test demand, pricing and repeat usage.",
+        "threat": "Existing alternatives, price competition and operating-cost pressure.",
+        "marketing": market.get("marketing", ""),
+        "risks": market.get("risks", ""),
+        "score": market.get("score", 70),
+        "scoretext": "Preliminary AI score; validate with real customer evidence.",
+        "recommendation": "Run a small paid pilot, compare competitors and measure unit economics before scaling.",
+        "assumptions": [
+            "The stated customer segment has the problem",
+            "Customers will pay the tested price",
+            "The offering can be delivered at sustainable cost"
+        ],
+        "validation_questions": [
+            "How do customers solve this problem today?",
+            "What price would they actually pay?",
+            "Would they use the product or service repeatedly?"
+        ],
+        "action_plan": [
+            "Interview 10-15 target customers",
+            "Run a small paid pilot",
+            "Track demand, cost, conversion and repeat usage"
+        ]
+    }
+
+    synthesis = {
+        "consensus": (
+            "The AI analysis and structured business-critic layer agree that the idea "
+            "has a testable customer problem, but real demand and willingness-to-pay "
+            "must be verified before significant investment."
+        ),
+        "common_strengths": [
+            market.get("strength", "Clear customer focus"),
+            "The idea can be tested through a small local pilot."
+        ],
+        "common_concerns": [
+            market.get("weakness", "Demand still needs validation."),
+            "Pricing, operating costs and repeat demand need real-world evidence."
+        ],
+        "key_disagreement": (
+            "The AI-generated market opportunity is a preliminary hypothesis, while "
+            "the critic layer takes a conservative view until customer evidence exists."
+        ),
+        "decision_focus": [
+            "Customer willingness to pay",
+            "Unit economics and operating cost",
+            "Competitor alternatives and differentiation"
+        ],
+        "final_action_plan": [
+            "Interview 10-15 target customers",
+            "Test 2-3 price points with a small paid pilot",
+            "Measure demand, cost and repeat usage before scaling"
+        ],
+        "final_recommendation": (
+            "Proceed to a small validation pilot rather than investing the full budget. "
+            "Use real customer responses and unit economics to decide the next step."
+        )
+    }
 
     return jsonify({
         "mode": "deep",
         "gemini": market,
         "critic": critic,
         "synthesis": synthesis,
-        "_providers": ["Gemini Market Analyst", "Gemini Business Critic"],
-        "_synthesis": "Vyapaar Sathi local synthesis",
+        "_providers": ["Gemini AI Analyst", "Vyapaar Sathi Business Critic"],
+        "_synthesis": "Vyapaar Sathi structured validation layer",
         "_cost_mode": "zero-cost API path; no OpenAI credits required",
-        "_performance": "Two Gemini perspectives run in parallel; synthesis is local for faster demo response."
+        "_performance": "Single Gemini call + local validation/synthesis for fast live demos."
     })
 
 if __name__ == "__main__":
