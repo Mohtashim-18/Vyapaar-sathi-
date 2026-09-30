@@ -144,7 +144,7 @@ def gemini_request(body, key, label="GEMINI", attempts=2, timeout=30):
     log_safe(f"{label}_ERROR", last_error)
     return None, last_error
 
-def gemini_analysis(d):
+def gemini_analysis(d, deep_mode=False):
     key = env("GEMINI_API_KEY")
     if not key:
         return None, "GEMINI_API_KEY is missing from the running Render service."
@@ -163,7 +163,7 @@ Generate the structured preliminary validation report."""
         }
     }
 
-    r, err = gemini_request(body, key, label="GEMINI_ANALYSIS", attempts=2, timeout=30)
+    r, err = gemini_request(body, key, label="GEMINI_ANALYSIS", attempts=1, timeout=9 if deep_mode else 20)
     if r is None:
         return None, err
 
@@ -241,7 +241,7 @@ arrays assumptions, validation_questions and action_plan must each have 3 concis
                 ],
                 "text": {"format": schema}
             },
-            timeout=60
+            timeout=20
         )
 
         if not r.ok:
@@ -298,6 +298,11 @@ def synthesize(gemini, openai):
     # Gemini is temporarily overloaded. The two AI analyses remain independent.
     return local_synthesis(gemini, openai), None
 
+@app.errorhandler(Exception)
+def handle_unexpected_error(e):
+    log_safe("UNHANDLED_ERROR", str(e)[:240])
+    return jsonify({"error": "Server error while processing the request", "detail": str(e)[:240]}), 500
+
 @app.get("/")
 def home():
     return send_from_directory(".", "index.html")
@@ -339,6 +344,9 @@ def test_gemini():
 def analyze():
     d = request.get_json(silent=True) or {}
 
+    if not isinstance(d, dict):
+        return jsonify({"error": "Invalid request body"}), 400
+
     if not d.get("idea"):
         return jsonify({"error": "Business idea is required"}), 400
 
@@ -368,7 +376,7 @@ def analyze():
     # Run the two independent AI opinions in parallel so one slow provider
     # does not unnecessarily delay the other.
     with ThreadPoolExecutor(max_workers=2) as pool:
-        gemini_future = pool.submit(gemini_analysis, d)
+        gemini_future = pool.submit(gemini_analysis, d, True)
         openai_future = pool.submit(openai_analysis, d)
         g, gerr = gemini_future.result()
         o, oerr = openai_future.result()
