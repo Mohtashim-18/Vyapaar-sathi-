@@ -1,6 +1,8 @@
 import os
 import json
 import requests
+import time
+from concurrent.futures import ThreadPoolExecutor
 from flask import Flask, request, jsonify, send_from_directory
 
 app = Flask(__name__, static_folder=".", static_url_path="")
@@ -99,6 +101,40 @@ def api_error(resp):
 def log_safe(label, message):
     print(f"[Vyapaar Sathi] {label}: {message}", flush=True)
 
+def gemini_request(body, key, label="GEMINI", attempts=2, timeout=30):
+    """Call Gemini with bounded retries for transient 408/429/5xx/timeouts."""
+    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent"
+    last_error = "Unknown Gemini error"
+
+    for attempt in range(1, attempts + 1):
+        try:
+            r = requests.post(
+                url,
+                params={"key": key},
+                json=body,
+                timeout=timeout
+            )
+            if r.ok:
+                return r, None
+
+            last_error = api_error(r)
+            retryable = r.status_code in (408, 429) or 500 <= r.status_code <= 599
+            if not retryable or attempt == attempts:
+                log_safe(f"{label}_ERROR", last_error)
+                return None, last_error
+
+        except requests.exceptions.Timeout as e:
+            last_error = f"Gemini timeout after {timeout}s: {str(e)[:120]}"
+        except requests.exceptions.RequestException as e:
+            last_error = f"Gemini network error: {str(e)[:160]}"
+
+        delay = 2 ** (attempt - 1) + 0.5
+        log_safe(f"{label}_RETRY", f"attempt {attempt}/{attempts} failed; retrying in {delay:.1f}s")
+        time.sleep(delay)
+
+    log_safe(f"{label}_ERROR", last_error)
+    return None, last_error
+
 def gemini_analysis(d):
     key = env("GEMINI_API_KEY")
     if not key:
@@ -118,25 +154,18 @@ Generate the structured preliminary validation report."""
         }
     }
 
-    try:
-        r = requests.post(
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent",
-            params={"key": key},
-            json=body,
-            timeout=45
-        )
-        if not r.ok:
-            err = "Gemini request failed: " + api_error(r)
-            log_safe("GEMINI_ERROR", err)
-            return None, err
+    r, err = gemini_request(body, key, label="GEMINI_ANALYSIS", attempts=2, timeout=30)
+    if r is None:
+        return None, err
 
+    try:
         raw = r.json()["candidates"][0]["content"]["parts"][0]["text"]
         data = clean_json(raw)
         data["score"] = max(0, min(100, int(data.get("score", 70))))
         return data, None
     except Exception as e:
-        err = f"Gemini error: {str(e)[:180]}"
-        log_safe("GEMINI_EXCEPTION", err)
+        err = f"Gemini response parsing error: {str(e)[:180]}"
+        log_safe("GEMINI_PARSE_ERROR", err)
         return None, err
 
 def openai_analysis(d):
@@ -256,40 +285,9 @@ def local_synthesis(gemini, openai):
     }
 
 def synthesize(gemini, openai):
-    key = env("GEMINI_API_KEY")
-    if not key:
-        return local_synthesis(gemini, openai), None
-
-    prompt = (
-        "Business idea validation synthesis. Compare these two independent analyses.\n\n"
-        "GEMINI ANALYSIS:\n" + json.dumps(gemini, ensure_ascii=False) +
-        "\n\nOPENAI ANALYSIS:\n" + json.dumps(openai, ensure_ascii=False)
-    )
-
-    body = {
-        "system_instruction": {"parts": [{"text": DEEP_SYNTHESIS_SYSTEM}]},
-        "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {
-            "responseMimeType": "application/json",
-            "temperature": 0.2
-        }
-    }
-
-    try:
-        r = requests.post(
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent",
-            params={"key": key},
-            json=body,
-            timeout=45
-        )
-        if not r.ok:
-            return local_synthesis(gemini, openai), "Final Gemini synthesis failed: " + api_error(r)
-
-        raw = r.json()["candidates"][0]["content"]["parts"][0]["text"]
-        return clean_json(raw), None
-
-    except Exception as e:
-        return local_synthesis(gemini, openai), f"Final synthesis fallback used: {str(e)[:160]}"
+    # Keep final synthesis local so Deep Validation remains usable even when
+    # Gemini is temporarily overloaded. The two AI analyses remain independent.
+    return local_synthesis(gemini, openai), None
 
 @app.get("/")
 def home():
@@ -310,24 +308,22 @@ def test_gemini():
     key = env("GEMINI_API_KEY")
     if not key:
         return jsonify({"ok": False, "error": "GEMINI_API_KEY is missing"}), 503
+
     body = {
         "contents": [{"parts": [{"text": "Reply with exactly: GEMINI_OK"}]}],
         "generationConfig": {}
     }
+
+    r, err = gemini_request(body, key, label="GEMINI_TEST", attempts=2, timeout=30)
+    if r is None:
+        return jsonify({"ok": False, "error": err}), 502
+
     try:
-        r = requests.post(
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent",
-            params={"key": key}, json=body, timeout=30
-        )
-        if not r.ok:
-            err = api_error(r)
-            log_safe("GEMINI_TEST_ERROR", err)
-            return jsonify({"ok": False, "error": err}), 502
         text = r.json()["candidates"][0]["content"]["parts"][0]["text"]
         return jsonify({"ok": True, "response": text[:80]})
     except Exception as e:
-        err = str(e)[:200]
-        log_safe("GEMINI_TEST_EXCEPTION", err)
+        err = f"Gemini response parsing error: {str(e)[:180]}"
+        log_safe("GEMINI_TEST_PARSE_ERROR", err)
         return jsonify({"ok": False, "error": err}), 502
 
 @app.post("/api/analyze")
@@ -360,12 +356,22 @@ def analyze():
             "next_step": "Open /api/health after the latest deploy. It shows only true/false, never the keys."
         }), 503
 
-    g, gerr = gemini_analysis(d)
+    # Run the two independent AI opinions in parallel so one slow provider
+    # does not unnecessarily delay the other.
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        gemini_future = pool.submit(gemini_analysis, d)
+        openai_future = pool.submit(openai_analysis, d)
+        g, gerr = gemini_future.result()
+        o, oerr = openai_future.result()
+
     if g is None:
         log_safe("DEEP_VALIDATION", gerr or "Unknown Gemini error")
-        return jsonify({"error": "Gemini analysis failed", "detail": gerr or "Unknown Gemini error"}), 502
+        return jsonify({
+            "error": "Gemini analysis failed",
+            "detail": gerr or "Unknown Gemini error",
+            "hint": "Gemini can temporarily return 503 or timeout during high demand; the server now retries transient failures automatically."
+        }), 502
 
-    o, oerr = openai_analysis(d)
     if o is None:
         return jsonify({"error": "OpenAI analysis failed", "detail": oerr}), 502
 
@@ -376,7 +382,8 @@ def analyze():
         "gemini": g,
         "openai": o,
         "synthesis": synthesis,
-        "_providers": ["Gemini", "OpenAI"]
+        "_providers": ["Gemini", "OpenAI"],
+        "_synthesis": "Vyapaar Sathi local synthesis"
     }
 
     if serr:
