@@ -174,7 +174,7 @@ Do not fabricate sources."""
     if competitor_mode:
         body["tools"] = [{"google_search": {}}]
 
-    r, err = gemini_request(body, key, label=label, attempts=1, timeout=8)
+    r, err = gemini_request(body, key, label=label, attempts=1, timeout=3)
     if r is None:
         return None, err
 
@@ -242,7 +242,7 @@ Find current public competitor/alternative signals for this market."""
         "generationConfig": {"responseMimeType": "application/json"},
         "tools": [{"google_search": {}}]
     }
-    r, err = gemini_request(body, key, label="COMPETITOR_SEARCH", attempts=1, timeout=6)
+    r, err = gemini_request(body, key, label="COMPETITOR_SEARCH", attempts=1, timeout=4)
     if r is None:
         return {"competitors": [], "competitor_sources": [], "_notice": err or "Live competitor lookup timed out."}
     try:
