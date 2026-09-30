@@ -92,52 +92,34 @@ def api_error(resp):
 def log_safe(label, message):
     print(f"[Vyapaar Sathi] {label}: {message}", flush=True)
 
-def gemini_request(body, key, label="GEMINI", attempts=1, timeout=8):
-    # Fallback order keeps the free demo resilient to temporary model load.
-    model_candidates = [
-        "gemini-3.8-flash",
-        "gemini-3.7-flash",
-        "gemini-3.5-flash-lite"
-    ]
-    last_error = "Unknown Gemini error"
+def gemini_request(body, key, label="GEMINI", attempts=1, timeout=3):
+    # Live-demo mode: use one verified current model only. If it is slow,
+    # return control quickly so the local validation fallback can respond.
+    model_name = "gemini-3.8-flash"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent"
 
-    for model_name in model_candidates:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent"
-        for attempt in range(1, attempts + 1):
-            try:
-                r = requests.post(url, params={"key": key}, json=body, timeout=timeout)
-                if r.ok:
-                    log_safe(f"{label}_OK", f"model={model_name}")
-                    return r, None
+    try:
+        r = requests.post(url, params={"key": key}, json=body, timeout=timeout)
+        if r.ok:
+            log_safe(f"{label}_OK", f"model={model_name}")
+            return r, None
 
-                last_error = api_error(r)
-                retryable = r.status_code in (408, 429) or 500 <= r.status_code <= 599
-                if not retryable:
-                    log_safe(f"{label}_ERROR", f"model={model_name}; {last_error}")
-                    break
+        last_error = api_error(r)
+        log_safe(f"{label}_ERROR", f"model={model_name}; {last_error}")
+        return None, last_error
 
-                if attempt < attempts:
-                    delay = 2 ** (attempt - 1) + 0.5
-                    log_safe(f"{label}_RETRY", f"model={model_name}; retry {attempt}/{attempts}; {delay:.1f}s")
-                    time.sleep(delay)
-                else:
-                    log_safe(f"{label}_MODEL_FALLBACK", f"model={model_name}; trying next model")
-
-            except requests.exceptions.Timeout as e:
-                last_error = f"Gemini timeout after {timeout}s: {str(e)[:120]}"
-                if attempt < attempts:
-                    delay = 2 ** (attempt - 1) + 0.5
-                    log_safe(f"{label}_RETRY", f"model={model_name}; timeout; {delay:.1f}s")
-                    time.sleep(delay)
-                else:
-                    log_safe(f"{label}_MODEL_FALLBACK", f"model={model_name}; timeout; trying next model")
-            except requests.exceptions.RequestException as e:
-                last_error = f"Gemini network error: {str(e)[:160]}"
-                log_safe(f"{label}_MODEL_FALLBACK", f"model={model_name}; {last_error}")
-                break
-
-    log_safe(f"{label}_ERROR", last_error)
-    return None, last_error
+    except requests.exceptions.Timeout:
+        err = f"Gemini timed out after {timeout}s"
+        log_safe(f"{label}_TIMEOUT", err)
+        return None, err
+    except requests.exceptions.RequestException as e:
+        err = f"Gemini connection error: {str(e)[:160]}"
+        log_safe(f"{label}_REQUEST_ERROR", err)
+        return None, err
+    except Exception as e:
+        err = f"Gemini unexpected error: {str(e)[:160]}"
+        log_safe(f"{label}_EXCEPTION", err)
+        return None, err
 
 def gemini_analysis(d, role="market"):
     key = env("GEMINI_API_KEY")
@@ -175,7 +157,7 @@ Generate the structured preliminary validation report independently."""
 
     r, err = gemini_request(
         body, key, label=label,
-        attempts=1, timeout=6
+        attempts=1, timeout=3
     )
     if r is None:
         return None, err
@@ -288,7 +270,7 @@ def analyze():
         if data is None:
             data = fallback(d)
             data["_provider"] = "Vyapaar Sathi Local Validation"
-            data["_notice"] = "Gemini response was unavailable within the demo timeout; local validation layer used."
+            data["_notice"] = "Gemini was temporarily slow; Vyapaar Sathi switched to its instant validation layer."
         else:
             data["_provider"] = "Gemini"
         return jsonify(data)
@@ -304,7 +286,7 @@ def analyze():
         # report when Gemini is temporarily slow/unavailable.
         market = fallback(d)
         market["_provider"] = "Vyapaar Sathi Local Validation"
-        market["_notice"] = "Gemini response was unavailable within the demo timeout; local validation layer used."
+        market["_notice"] = "Gemini was temporarily slow; Vyapaar Sathi switched to its instant validation layer."
         merr = None
 
     critic = {
@@ -380,7 +362,7 @@ def analyze():
         "_providers": ["Gemini AI Analyst", "Vyapaar Sathi Business Critic"],
         "_synthesis": "Vyapaar Sathi structured validation layer",
         "_cost_mode": "zero-cost API path; no OpenAI credits required",
-        "_performance": "Single Gemini call with a 6-second timeout + instant local validation fallback."
+        "_performance": "One Gemini call with a 3-second demo timeout + instant local validation fallback."
     })
 
 if __name__ == "__main__":
