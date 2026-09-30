@@ -10,6 +10,7 @@ app = Flask(__name__, static_folder=".", static_url_path="")
 ANALYSIS_FIELDS = [
     "market", "problem", "value", "pricing",
     "strength", "weakness", "opportunity", "threat",
+    "competitors", "competitor_sources",
     "marketing", "risks", "score", "scoretext",
     "recommendation", "assumptions",
     "validation_questions", "action_plan"
@@ -20,7 +21,7 @@ Analyze a business idea using the supplied customer, location and budget.
 Be practical, specific, conservative and concise. Do not guarantee success.
 Treat scores and estimates as preliminary.
 Return ONLY valid JSON with exactly these fields:
-market, problem, value, pricing, strength, weakness, opportunity, threat, marketing, risks, score, scoretext, recommendation, assumptions, validation_questions, action_plan.
+market, problem, value, pricing, strength, weakness, opportunity, threat, competitors, competitor_sources, marketing, risks, score, scoretext, recommendation, assumptions, validation_questions, action_plan.
 score must be an integer from 0 to 100.
 assumptions, validation_questions and action_plan must each be arrays of 3 concise strings."""
 
@@ -42,6 +43,8 @@ def fallback(d):
         "weakness": "Demand, operating costs and willingness-to-pay are still unvalidated.",
         "opportunity": "Local partnerships, referrals and a small pilot can create useful early evidence.",
         "threat": "Existing alternatives, price pressure and changing customer preferences.",
+        "competitors": "Live competitor lookup was unavailable. Identify 3–5 direct local alternatives and 1–2 indirect substitutes before investing.",
+        "competitor_sources": [],
         "marketing": "Use local digital channels, referrals, partnerships and a small pilot campaign.",
         "risks": "Weak demand, wrong pricing, operating costs and customer retention.",
         "score": 70,
@@ -126,17 +129,24 @@ def gemini_analysis(d, role="market"):
     if not key:
         return None, "GEMINI_API_KEY is missing from the running Render service."
 
-    if role == "critic":
-        role_instruction = """Act as an independent skeptical Business Critic.
-Focus especially on customer willingness-to-pay, competition, pricing, unit economics,
-execution risks and what evidence must be collected before investing.
-Do not simply agree with another analyst; form your own view."""
-        label = "GEMINI_CRITIC"
-    else:
-        role_instruction = """Act as an independent Market Analyst.
-Focus especially on customer segment, problem-solution fit, local market context,
+    role_instruction = """Act as an independent Market Analyst.
+Focus on customer segment, problem-solution fit, local market context,
 value proposition, positioning and realistic opportunities."""
-        label = "GEMINI_MARKET"
+    label = "GEMINI_MARKET"
+
+    competitor_mode = bool(d.get("include_competitors"))
+    if competitor_mode:
+        role_instruction += """
+Use Google Search grounding to identify CURRENT public information about competitors
+and alternatives relevant to the exact location and customer segment.
+Do not invent competitor names, prices, ratings or claims.
+Prefer official business websites, Google/Maps-visible business information, established
+marketplaces/directories and reputable local sources when available.
+Clearly distinguish direct competitors from indirect substitutes.
+For each competitor, include name, type, what it offers, approximate publicly visible
+price/range if available, and one practical differentiation observation.
+If a price or fact cannot be verified, say "Not publicly verified".
+Return source URLs in competitor_sources."""
 
     prompt = f"""{role_instruction}
 
@@ -145,9 +155,15 @@ Target customer: {d.get("customer") or "Not specified"}
 Location: {d.get("location") or "Not specified"}
 Investment budget: {d.get("budget") or "Not specified"}
 
-Generate the structured preliminary validation report independently."""
+Generate the structured preliminary validation report.
+The competitor section must be based on fresh web research when competitor mode is enabled."""
 
-    system = SYSTEM + "\n\nYour current role is independent and must not assume any other AI has already analyzed this idea."
+    system = SYSTEM + """
+Return competitors as an array of concise objects with:
+name, type, offer, price, differentiation.
+Return competitor_sources as an array of objects with:
+title, url.
+Do not fabricate sources."""
 
     body = {
         "system_instruction": {"parts": [{"text": system}]},
@@ -155,16 +171,46 @@ Generate the structured preliminary validation report independently."""
         "generationConfig": {"responseMimeType": "application/json"}
     }
 
-    r, err = gemini_request(
-        body, key, label=label,
-        attempts=1, timeout=3
-    )
+    if competitor_mode:
+        body["tools"] = [{"google_search": {}}]
+
+    r, err = gemini_request(body, key, label=label, attempts=1, timeout=8)
     if r is None:
         return None, err
 
     try:
-        raw = r.json()["candidates"][0]["content"]["parts"][0]["text"]
+        response_json = r.json()
+        raw = response_json["candidates"][0]["content"]["parts"][0]["text"]
         data = clean_json(raw)
+
+        # Keep only safe, displayable competitor fields.
+        competitors = data.get("competitors", [])
+        if not isinstance(competitors, list):
+            competitors = []
+        safe_competitors = []
+        for item in competitors[:6]:
+            if isinstance(item, dict):
+                safe_competitors.append({
+                    "name": str(item.get("name", ""))[:100],
+                    "type": str(item.get("type", ""))[:60],
+                    "offer": str(item.get("offer", ""))[:240],
+                    "price": str(item.get("price", "Not publicly verified"))[:100],
+                    "differentiation": str(item.get("differentiation", ""))[:240]
+                })
+        data["competitors"] = safe_competitors
+
+        sources = data.get("competitor_sources", [])
+        if not isinstance(sources, list):
+            sources = []
+        safe_sources = []
+        for item in sources[:8]:
+            if isinstance(item, dict) and str(item.get("url", "")).startswith(("http://", "https://")):
+                safe_sources.append({
+                    "title": str(item.get("title", "Source"))[:120],
+                    "url": str(item.get("url", ""))[:500]
+                })
+        data["competitor_sources"] = safe_sources
+
         data["score"] = max(0, min(100, int(data.get("score", 70))))
         return data, None
     except Exception as e:
@@ -273,6 +319,7 @@ def analyze():
             data["_notice"] = "Gemini was temporarily slow; Vyapaar Sathi switched to its instant validation layer."
         else:
             data["_provider"] = "Gemini"
+            data["_live_competitor_check"] = bool(d.get("include_competitors"))
         return jsonify(data)
 
     if not env("GEMINI_API_KEY"):
@@ -294,6 +341,8 @@ def analyze():
         "problem": market.get("problem", ""),
         "value": market.get("value", ""),
         "pricing": market.get("pricing", ""),
+        "competitors": market.get("competitors", []),
+        "competitor_sources": market.get("competitor_sources", []),
         "strength": "Defined customer segment and a clear problem-solution direction.",
         "weakness": "Willingness-to-pay and repeat demand are not yet verified.",
         "opportunity": "A small local pilot can test demand, pricing and repeat usage.",
