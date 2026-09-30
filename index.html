@@ -96,18 +96,35 @@ report.innerHTML=competitorHTML+a.map(x=>`<div class="box"><h3>${x[0]}</h3><p>${
 `<div class="action full"><h3>🚀 Decision Focus</h3><p>${clean(d.scoretext)}</p><br><h3>7–14 Day Validation Action</h3><p>${clean(d.recommendation)}</p></div>`;
 results.style.display='block';results.scrollIntoView({behavior:'smooth'});
 }
+function renderCompetitors(list,sources,notice){
+  let box=document.getElementById('competitorBox');
+  if(!box)return;
+  let arr=Array.isArray(list)?list:[];
+  if(arr.length){
+    box.innerHTML=`<h3>🏪 Live Competitor Landscape</h3><p style="margin-bottom:12px;color:#68768b">Fresh public-web signals for the selected location. Verify prices and availability before making a business decision.</p><div style="display:grid;gap:10px">${arr.map(c=>`<div style="border:1px solid #e3e9f2;border-radius:12px;padding:12px;background:#f9fbff"><b>${clean(c.name)}</b> <span style="font-size:11px;color:#6d7b90">${clean(c.type)}</span><p style="margin-top:5px">${clean(c.offer)}</p><p><b>Price:</b> ${clean(c.price)} &nbsp; <b>Gap:</b> ${clean(c.differentiation)}</p></div>`).join('')}</div>${Array.isArray(sources)&&sources.length?`<p style="margin-top:12px"><b>Sources:</b> ${sources.map(s=>`<a href="${clean(s.url)}" target="_blank" rel="noopener">${clean(s.title)}</a>`).join(' · ')}</p>`:''}`;
+  }else{
+    box.innerHTML=`<h3>🏪 Competitor Landscape</h3><p>${clean(notice||'No verified competitor data returned. You can still use the validation report above.')}</p>`;
+  }
+}
+function showPreview(p){
+  let d=fallback(p.idea,p.customer,p.location,p.budget);
+  score.textContent=d.score+'/100';
+  let a=[['🎯 Market',d.market],['Problem',d.problem],['💎 Value Proposition',d.value],['💰 Pricing & Revenue',d.pricing],['💪 Strength',d.strength],['⚠️ Weakness',d.weakness],['🌱 Opportunity',d.opportunity],['🛡️ Threat',d.threat],['📣 Marketing',d.marketing],['Risk Signals',d.risks]];
+  report.innerHTML=`<div id="competitorBox" class="box full"><h3>🏪 Live Competitor Landscape</h3><p>🔎 Checking current public competitor signals separately…</p></div>`+a.map(x=>`<div class="box"><h3>${x[0]}</h3><p>${clean(x[1])}</p></div>`).join('')+`<div class="action full"><h3>🚀 Decision Focus</h3><p>${clean(d.scoretext)}</p><br><h3>7–14 Day Validation Action</h3><p>${clean(d.recommendation)}</p></div>`;
+  results.style.display='block';
+  results.scrollIntoView({behavior:'smooth'});
+}
 async function analyze(){
-let p={idea:idea.value.trim(),customer:customer.value.trim(),location:location.value.trim(),budget:budget.value.trim(),mode:'quick',include_competitors:true};
-if(!p.idea){alert('Please enter a business idea.');return}
-btn.disabled=true;status.classList.add('show');st.textContent='Checking market, pricing, risks and live competitor signals…';
-let ctl=new AbortController(), timer=setTimeout(()=>ctl.abort(),16000);
-try{
-let r=await fetch('/api/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(p),signal:ctl.signal});
-let t=await r.text(),d;try{d=JSON.parse(t)}catch(e){throw Error('Invalid server response')}
-if(!r.ok||d.error)throw Error(d.error||('Server error '+r.status));
-show(d,'AI analysis • structured validation');
-}catch(e){console.warn(e);st.textContent='AI response delayed — preparing validation preview…';await new Promise(x=>setTimeout(x,350));show(fallback(p.idea,p.customer,p.location,p.budget),'Validation preview • fallback mode');}
-finally{clearTimeout(timer);btn.disabled=false;setTimeout(()=>status.classList.remove('show'),800)}
+  let p={idea:idea.value.trim(),customer:customer.value.trim(),location:location.value.trim(),budget:budget.value.trim(),mode:'quick'};
+  if(!p.idea){alert('Please enter a business idea.');return}
+  btn.disabled=true;status.classList.add('show');st.textContent='Preparing your validation report…';
+  showPreview(p);
+  // Do not make the user wait for AI. Both calls run independently and update the report when ready.
+  const core=fetch('/api/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)}).then(async r=>{let d=await r.json();if(!r.ok||d.error)throw Error(d.error||('Server error '+r.status));return d;}).catch(e=>null);
+  const comp=fetch('/api/competitors',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)}).then(async r=>{let d=await r.json();if(!r.ok||d.error)throw Error(d.error||('Server error '+r.status));return d;}).catch(e=>({competitors:[],competitor_sources:[],_notice:'Live competitor search is taking longer than the demo window. The rest of the validation report is still ready.'}));
+  core.then(d=>{if(!d)return; show(d,'AI analysis • structured validation'); let box=document.getElementById('competitorBox'); if(!box){let el=document.createElement('div');el.id='competitorBox';el.className='box full';report.prepend(el)} renderCompetitors([],[], '🔎 Live competitor check is running separately…');});
+  comp.then(d=>{renderCompetitors(d.competitors,d.competitor_sources,d._notice);});
+  Promise.all([core,comp]).finally(()=>{btn.disabled=false;st.textContent='Validation ready';setTimeout(()=>status.classList.remove('show'),700);});
 }
 </script>
 </body>
