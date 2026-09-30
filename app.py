@@ -24,16 +24,7 @@ market, problem, value, pricing, strength, weakness, opportunity, threat, market
 score must be an integer from 0 to 100.
 assumptions, validation_questions and action_plan must each be arrays of 3 concise strings."""
 
-DEEP_SYNTHESIS_SYSTEM = """You are the final synthesis engine for Vyapaar Sathi.
-You receive two independent preliminary business analyses: one from Gemini and one from OpenAI.
-Compare them without pretending either is verified market data.
-Return ONLY valid JSON with exactly:
-consensus, common_strengths, common_concerns, key_disagreement, decision_focus, final_action_plan, final_recommendation.
-All list fields must contain 2-4 concise strings.
-final_recommendation must be 2-4 sentences."""
-
 def env(name):
-    # Render secrets are read directly from the process environment.
     value = os.environ.get(name)
     return value.strip() if isinstance(value, str) else ""
 
@@ -101,9 +92,13 @@ def api_error(resp):
 def log_safe(label, message):
     print(f"[Vyapaar Sathi] {label}: {message}", flush=True)
 
-def gemini_request(body, key, label="GEMINI", attempts=2, timeout=30):
-    """Call Gemini with retries and model fallback for transient 408/429/5xx/timeouts."""
-    model_candidates = ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.5-flash-lite"]
+def gemini_request(body, key, label="GEMINI", attempts=2, timeout=25):
+    # Fallback order keeps the free demo resilient to temporary model load.
+    model_candidates = [
+        "gemini-3.8-flash",
+        "gemini-3.7-flash",
+        "gemini-3.5-flash-lite"
+    ]
     last_error = "Unknown Gemini error"
 
     for model_name in model_candidates:
@@ -123,19 +118,19 @@ def gemini_request(body, key, label="GEMINI", attempts=2, timeout=30):
 
                 if attempt < attempts:
                     delay = 2 ** (attempt - 1) + 0.5
-                    log_safe(f"{label}_RETRY", f"model={model_name}; attempt {attempt}/{attempts}; retrying in {delay:.1f}s")
+                    log_safe(f"{label}_RETRY", f"model={model_name}; retry {attempt}/{attempts}; {delay:.1f}s")
                     time.sleep(delay)
                 else:
-                    log_safe(f"{label}_MODEL_FALLBACK", f"model={model_name} unavailable; trying next model")
+                    log_safe(f"{label}_MODEL_FALLBACK", f"model={model_name}; trying next model")
 
             except requests.exceptions.Timeout as e:
                 last_error = f"Gemini timeout after {timeout}s: {str(e)[:120]}"
                 if attempt < attempts:
                     delay = 2 ** (attempt - 1) + 0.5
-                    log_safe(f"{label}_RETRY", f"model={model_name}; timeout; retrying in {delay:.1f}s")
+                    log_safe(f"{label}_RETRY", f"model={model_name}; timeout; {delay:.1f}s")
                     time.sleep(delay)
                 else:
-                    log_safe(f"{label}_MODEL_FALLBACK", f"model={model_name} timed out; trying next model")
+                    log_safe(f"{label}_MODEL_FALLBACK", f"model={model_name}; timeout; trying next model")
             except requests.exceptions.RequestException as e:
                 last_error = f"Gemini network error: {str(e)[:160]}"
                 log_safe(f"{label}_MODEL_FALLBACK", f"model={model_name}; {last_error}")
@@ -144,26 +139,44 @@ def gemini_request(body, key, label="GEMINI", attempts=2, timeout=30):
     log_safe(f"{label}_ERROR", last_error)
     return None, last_error
 
-def gemini_analysis(d, deep_mode=False):
+def gemini_analysis(d, role="market"):
     key = env("GEMINI_API_KEY")
     if not key:
         return None, "GEMINI_API_KEY is missing from the running Render service."
 
-    prompt = f"""Business idea: {d["idea"]}
+    if role == "critic":
+        role_instruction = """Act as an independent skeptical Business Critic.
+Focus especially on customer willingness-to-pay, competition, pricing, unit economics,
+execution risks and what evidence must be collected before investing.
+Do not simply agree with another analyst; form your own view."""
+        label = "GEMINI_CRITIC"
+    else:
+        role_instruction = """Act as an independent Market Analyst.
+Focus especially on customer segment, problem-solution fit, local market context,
+value proposition, positioning and realistic opportunities."""
+        label = "GEMINI_MARKET"
+
+    prompt = f"""{role_instruction}
+
+Business idea: {d["idea"]}
 Target customer: {d.get("customer") or "Not specified"}
 Location: {d.get("location") or "Not specified"}
 Investment budget: {d.get("budget") or "Not specified"}
-Generate the structured preliminary validation report."""
+
+Generate the structured preliminary validation report independently."""
+
+    system = SYSTEM + "\n\nYour current role is independent and must not assume any other AI has already analyzed this idea."
 
     body = {
-        "system_instruction": {"parts": [{"text": SYSTEM}]},
+        "system_instruction": {"parts": [{"text": system}]},
         "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {
-            "responseMimeType": "application/json"
-        }
+        "generationConfig": {"responseMimeType": "application/json"}
     }
 
-    r, err = gemini_request(body, key, label="GEMINI_ANALYSIS", attempts=1, timeout=9 if deep_mode else 20)
+    r, err = gemini_request(
+        body, key, label=label,
+        attempts=1, timeout=12
+    )
     if r is None:
         return None, err
 
@@ -174,112 +187,32 @@ Generate the structured preliminary validation report."""
         return data, None
     except Exception as e:
         err = f"Gemini response parsing error: {str(e)[:180]}"
-        log_safe("GEMINI_PARSE_ERROR", err)
+        log_safe(f"{label}_PARSE_ERROR", err)
         return None, err
 
-def openai_analysis(d):
-    key = env("OPENAI_API_KEY")
-    if not key:
-        return None, "OPENAI_API_KEY is missing from the running Render service."
+def local_synthesis(gemini, critic):
+    def val(obj, key, default=""):
+        return obj.get(key, default) if isinstance(obj, dict) else default
 
-    model = env("OPENAI_MODEL") or "gpt-5.6-luna"
-
-    prompt = f"""Analyze this business idea independently as a skeptical business critic.
-Business idea: {d["idea"]}
-Target customer: {d.get("customer") or "Not specified"}
-Location: {d.get("location") or "Not specified"}
-Investment budget: {d.get("budget") or "Not specified"}
-
-Return ONLY JSON with these fields:
-market, problem, value, pricing, strength, weakness, opportunity, threat,
-marketing, risks, score, scoretext, recommendation, assumptions,
-validation_questions, action_plan.
-score is illustrative from 0-100.
-arrays assumptions, validation_questions and action_plan must each have 3 concise strings."""
-
-    schema = {
-        "type": "json_schema",
-        "name": "business_analysis",
-        "strict": True,
-        "schema": {
-            "type": "object",
-            "properties": {
-                "market": {"type": "string"},
-                "problem": {"type": "string"},
-                "value": {"type": "string"},
-                "pricing": {"type": "string"},
-                "strength": {"type": "string"},
-                "weakness": {"type": "string"},
-                "opportunity": {"type": "string"},
-                "threat": {"type": "string"},
-                "marketing": {"type": "string"},
-                "risks": {"type": "string"},
-                "score": {"type": "integer"},
-                "scoretext": {"type": "string"},
-                "recommendation": {"type": "string"},
-                "assumptions": {"type": "array", "items": {"type": "string"}},
-                "validation_questions": {"type": "array", "items": {"type": "string"}},
-                "action_plan": {"type": "array", "items": {"type": "string"}}
-            },
-            "required": ANALYSIS_FIELDS,
-            "additionalProperties": False
-        }
-    }
-
-    try:
-        r = requests.post(
-            "https://api.openai.com/v1/responses",
-            headers={
-                "Authorization": f"Bearer {key}",
-                "Content-Type": "application/json"
-            },
-            json={
-                "model": model,
-                "input": [
-                    {"role": "system", "content": SYSTEM},
-                    {"role": "user", "content": prompt}
-                ],
-                "text": {"format": schema}
-            },
-            timeout=20
-        )
-
-        if not r.ok:
-            return None, "OpenAI request failed: " + api_error(r)
-
-        j = r.json()
-        raw = j.get("output_text")
-
-        if not raw:
-            for item in j.get("output", []):
-                for part in item.get("content", []):
-                    if part.get("type") in ("output_text", "text") and part.get("text"):
-                        raw = part["text"]
-                        break
-                if raw:
-                    break
-
-        data = clean_json(raw)
-        data["score"] = max(0, min(100, int(data.get("score", 70))))
-        return data, None
-
-    except Exception as e:
-        return None, f"OpenAI error: {str(e)[:180]}"
-
-def local_synthesis(gemini, openai):
-    # Emergency synthesis so Deep Validation can still show a useful result
-    # if the final Gemini synthesis call fails.
     return {
-        "consensus": "Both AI perspectives were generated independently. Treat the shared points as hypotheses to validate with real customers rather than verified market facts.",
+        "consensus": (
+            "Both Gemini perspectives independently point to the same core principle: "
+            "the idea should be tested with real customers before significant investment. "
+            "Their outputs are hypotheses, not verified market data."
+        ),
         "common_strengths": [
-            gemini.get("strength", ""),
-            openai.get("strength", "")
-        ][:2],
+            val(gemini, "strength", "Focused customer positioning can help."),
+            val(critic, "strength", "A clear problem-solution fit can help.")
+        ],
         "common_concerns": [
-            gemini.get("weakness", ""),
-            openai.get("risks", "")
-        ][:2],
-        "key_disagreement": "The two AI perspectives may differ in how strongly they interpret demand, pricing and execution risk. Validate these points with real customer evidence.",
+            val(gemini, "weakness", "Demand still needs validation."),
+            val(critic, "risks", "Pricing, costs and competition need evidence.")
+        ],
+        "key_disagreement": (
+            "The two independent perspectives may differ in how strongly they interpret "
+            "market opportunity and execution risk. Use customer interviews, competitor "
+            "checks and a small paid pilot to resolve the disagreement."
+        ),
         "decision_focus": [
             "Customer willingness to pay",
             "Unit economics and operating cost",
@@ -290,18 +223,20 @@ def local_synthesis(gemini, openai):
             "Test two or three price points with a small pilot",
             "Measure demand, cost and repeat usage before scaling"
         ],
-        "final_recommendation": "Use the AI outputs as a preliminary validation map, not as proof of market demand. Run a small real-world pilot and use the results to decide what to change before investing further."
+        "final_recommendation": (
+            "Use the two independent Gemini perspectives as a preliminary validation map, "
+            "not as proof of market demand. Run a small real-world pilot and use the results "
+            "to refine the idea before committing more capital."
+        )
     }
-
-def synthesize(gemini, openai):
-    # Keep final synthesis local so Deep Validation remains usable even when
-    # Gemini is temporarily overloaded. The two AI analyses remain independent.
-    return local_synthesis(gemini, openai), None
 
 @app.errorhandler(Exception)
 def handle_unexpected_error(e):
     log_safe("UNHANDLED_ERROR", str(e)[:240])
-    return jsonify({"error": "Server error while processing the request", "detail": str(e)[:240]}), 500
+    return jsonify({
+        "error": "Server error while processing the request",
+        "detail": str(e)[:240]
+    }), 500
 
 @app.get("/")
 def home():
@@ -309,12 +244,11 @@ def home():
 
 @app.get("/api/health")
 def health():
-    # Never returns the actual secrets.
     return jsonify({
         "status": "ok",
         "gemini_configured": bool(env("GEMINI_API_KEY")),
-        "openai_configured": bool(env("OPENAI_API_KEY")),
-        "openai_model": env("OPENAI_MODEL") or "gpt-5.6-luna"
+        "openai_required": False,
+        "mode": "Gemini-only zero-cost Deep Validation"
     })
 
 @app.get("/api/test-gemini")
@@ -337,44 +271,7 @@ def test_gemini():
         return jsonify({"ok": True, "response": text[:80]})
     except Exception as e:
         err = f"Gemini response parsing error: {str(e)[:180]}"
-        log_safe("GEMINI_TEST_PARSE_ERROR", err)
         return jsonify({"ok": False, "error": err}), 502
-
-@app.get("/api/test-openai")
-def test_openai():
-    key = env("OPENAI_API_KEY")
-    if not key:
-        return jsonify({"ok": False, "error": "OPENAI_API_KEY is missing"}), 503
-
-    model = env("OPENAI_MODEL") or "gpt-5.6-luna"
-    try:
-        r = requests.post(
-            "https://api.openai.com/v1/responses",
-            headers={
-                "Authorization": f"Bearer {key}",
-                "Content-Type": "application/json"
-            },
-            json={
-                "model": model,
-                "input": "Reply with exactly: OPENAI_OK"
-            },
-            timeout=20
-        )
-        if not r.ok:
-            return jsonify({"ok": False, "model": model, "error": api_error(r)}), 502
-        j = r.json()
-        text = j.get("output_text") or ""
-        if not text:
-            for item in j.get("output", []):
-                for part in item.get("content", []):
-                    if part.get("type") in ("output_text", "text") and part.get("text"):
-                        text = part["text"]
-                        break
-                if text:
-                    break
-        return jsonify({"ok": True, "model": model, "response": text[:80]})
-    except Exception as e:
-        return jsonify({"ok": False, "model": model, "error": str(e)[:240]}), 502
 
 @app.post("/api/analyze")
 def analyze():
@@ -389,7 +286,7 @@ def analyze():
     mode = d.get("mode", "quick")
 
     if mode != "deep":
-        data, err = gemini_analysis(d)
+        data, err = gemini_analysis(d, "market")
         if data is None:
             data = fallback(d)
             data["_provider"] = "Fallback"
@@ -398,51 +295,44 @@ def analyze():
             data["_provider"] = "Gemini"
         return jsonify(data)
 
-    gemini_key_present = bool(env("GEMINI_API_KEY"))
-    openai_key_present = bool(env("OPENAI_API_KEY"))
-
-    if not gemini_key_present or not openai_key_present:
+    if not env("GEMINI_API_KEY"):
         return jsonify({
-            "error": "Deep Validation cannot see both API keys in the running Render process.",
-            "gemini_configured": gemini_key_present,
-            "openai_configured": openai_key_present,
-            "next_step": "Open /api/health after the latest deploy. It shows only true/false, never the keys."
+            "error": "Gemini API key is not configured.",
+            "gemini_configured": False
         }), 503
 
-    # Run the two independent AI opinions in parallel so one slow provider
-    # does not unnecessarily delay the other.
+    # Two independent Gemini perspectives; no OpenAI API is required.
     with ThreadPoolExecutor(max_workers=2) as pool:
-        gemini_future = pool.submit(gemini_analysis, d, True)
-        openai_future = pool.submit(openai_analysis, d)
-        g, gerr = gemini_future.result()
-        o, oerr = openai_future.result()
+        market_future = pool.submit(gemini_analysis, d, "market")
+        critic_future = pool.submit(gemini_analysis, d, "critic")
+        market, merr = market_future.result()
+        critic, cerr = critic_future.result()
 
-    if g is None:
-        log_safe("DEEP_VALIDATION", gerr or "Unknown Gemini error")
+    if market is None and critic is None:
         return jsonify({
             "error": "Gemini analysis failed",
-            "detail": gerr or "Unknown Gemini error",
-            "hint": "Gemini can temporarily return 503 or timeout during high demand; the server now retries transient failures automatically."
+            "detail": f"Market analyst: {merr}; Business critic: {cerr}"
         }), 502
 
-    if o is None:
-        return jsonify({"error": "OpenAI analysis failed", "detail": oerr}), 502
+    # If one perspective fails, use the other as the base and clearly label it.
+    if market is None:
+        market = fallback(d)
+        market["_notice"] = f"Market analyst unavailable: {merr}"
+    if critic is None:
+        critic = fallback(d)
+        critic["_notice"] = f"Business critic unavailable: {cerr}"
 
-    synthesis, serr = synthesize(g, o)
+    synthesis = local_synthesis(market, critic)
 
-    result = {
+    return jsonify({
         "mode": "deep",
-        "gemini": g,
-        "openai": o,
+        "gemini": market,
+        "critic": critic,
         "synthesis": synthesis,
-        "_providers": ["Gemini", "OpenAI"],
-        "_synthesis": "Vyapaar Sathi local synthesis"
-    }
-
-    if serr:
-        result["_notice"] = serr
-
-    return jsonify(result)
+        "_providers": ["Gemini Market Analyst", "Gemini Business Critic"],
+        "_synthesis": "Vyapaar Sathi local synthesis",
+        "_cost_mode": "zero-cost API path; no OpenAI credits required"
+    })
 
 if __name__ == "__main__":
     app.run(
