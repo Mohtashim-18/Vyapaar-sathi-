@@ -1,239 +1,114 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Vyapaar Sathi — Dukan Vision</title>
-
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Vyapaar Sathi — Business Validation Lab</title>
 <style>
-*{box-sizing:border-box}
-:root{
-  --navy:#07152f;--navy2:#102b59;--blue:#2563eb;--cyan:#06b6d4;
-  --text:#10213f;--muted:#66758d;--line:#e3eaf4;--card:#ffffff;
-  --soft:#f5f8fd;--green:#10a77d;--shadow:0 18px 55px rgba(16,36,70,.10)
-}
-html{scroll-behavior:smooth}
-body{
-  margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;color:var(--text);
-  background:linear-gradient(180deg,#eef4ff 0,#f7f9fc 34%,#f7f9fc 100%);
-}
-header{
-  height:72px;background:rgba(7,21,47,.96);backdrop-filter:blur(12px);
-  color:#fff;display:flex;align-items:center;justify-content:space-between;
-  padding:0 6%;position:sticky;top:0;z-index:20;border-bottom:1px solid rgba(255,255,255,.08)
-}
-.brand{font-weight:950;font-size:24px;letter-spacing:.2px}
-.brand span{color:#42d8e6}
-.team{font-size:11px;color:#b9c8df;font-weight:700;letter-spacing:.4px}
-.hero{
-  background:
-    radial-gradient(circle at 82% 20%,rgba(64,211,229,.22),transparent 24%),
-    radial-gradient(circle at 15% 70%,rgba(37,99,235,.25),transparent 30%),
-    linear-gradient(135deg,#07152f 0,#102d5c 55%,#0b2147 100%);
-  color:white;padding:72px 7% 105px;position:relative;overflow:hidden
-}
-.hero:before,.hero:after{content:"";position:absolute;border:1px solid rgba(255,255,255,.11);border-radius:50%}
-.hero:before{width:420px;height:420px;right:-130px;top:-180px}
-.hero:after{width:260px;height:260px;right:70px;top:-100px}
-.hero-inner{max-width:1180px;margin:auto;position:relative;z-index:2}
-.badge{
-  display:inline-flex;align-items:center;gap:7px;background:rgba(62,205,221,.13);
-  border:1px solid rgba(92,225,238,.35);color:#83edf6;padding:8px 13px;
-  border-radius:999px;font-size:11px;font-weight:900;letter-spacing:.5px
-}
-.hero h1{font-size:clamp(38px,5vw,62px);line-height:1.03;margin:18px 0 14px;max-width:760px;letter-spacing:-1.8px}
-.hero h1 span{color:#55dce8}
-.hero p{font-size:16px;color:#d1dcef;max-width:720px;line-height:1.75;margin:0}
-.hero-points{display:flex;gap:10px;flex-wrap:wrap;margin-top:24px}
-.hero-point{font-size:11px;font-weight:800;padding:9px 12px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.11);color:#d9e6fa}
-.wrap{max-width:1200px;margin:-48px auto 65px;padding:0 20px;position:relative;z-index:3}
-.panel,.card{
-  background:rgba(255,255,255,.96);border:1px solid var(--line);
-  border-radius:20px;box-shadow:var(--shadow)
-}
-.panel{padding:26px}
-.grid{display:grid;grid-template-columns:1.08fr .92fr;gap:24px}
-.form-title{display:flex;align-items:center;gap:11px;margin-bottom:4px}
-.form-title .icon{width:38px;height:38px;border-radius:12px;background:#eaf1ff;color:var(--blue);display:grid;place-items:center;font-size:19px}
-.form-title h2{font-size:19px;margin:0}
-.form-sub{font-size:12px;color:var(--muted);margin:4px 0 18px 49px}
-label{display:block;font-size:11px;font-weight:900;color:#53647c;margin:13px 0 7px;text-transform:uppercase;letter-spacing:.45px}
-input,textarea,select{
-  width:100%;padding:13px 14px;border:1px solid #dbe4f0;border-radius:12px;
-  font-size:14px;outline:none;background:#fbfdff;color:var(--text);transition:.2s
-}
-textarea{height:94px;resize:vertical}
-input:focus,textarea:focus{border-color:#6a9aff;box-shadow:0 0 0 4px rgba(37,99,235,.09);background:#fff}
-.modebox{margin-top:18px;border:1px solid #dfe7f3;border-radius:16px;padding:14px;background:#f7faff}
-.modetitle{font-size:11px;font-weight:950;color:#314563;text-transform:uppercase;letter-spacing:.5px;margin-bottom:9px}
-.mode{
-  display:grid;grid-template-columns:20px 1fr;grid-template-rows:auto auto;
-  margin:7px 0;padding:12px;border-radius:12px;background:#fff;cursor:pointer;
-  border:1px solid transparent;transition:.2s
-}
-.mode:hover{border-color:#cbd9f2;transform:translateY(-1px)}
-.mode input{grid-row:1/3;margin-top:3px}
-.mode span{font-size:13px;font-weight:900;color:#20395f}
-.mode small{font-size:11px;color:#718097;margin-top:2px}
-.mode.deep{border-color:#cfdbf6;background:linear-gradient(90deg,#f7f9ff,#fff)}
-.primary{
-  width:100%;margin-top:19px;height:54px;border:0;border-radius:14px;
-  background:linear-gradient(135deg,#1748c7 0%,#2563eb 48%,#1476d9 100%);
-  color:#fff;font-size:14px;font-weight:900;letter-spacing:.15px;
-  display:flex;align-items:center;justify-content:center;gap:10px;
-  cursor:pointer;position:relative;overflow:hidden;
-  box-shadow:0 10px 24px rgba(37,99,235,.24),inset 0 1px 0 rgba(255,255,255,.22);
-  transition:transform .2s ease,box-shadow .2s ease,filter .2s ease
-}
-.primary:before{
-  content:"";position:absolute;inset:0;
-  background:linear-gradient(110deg,transparent 20%,rgba(255,255,255,.16) 48%,transparent 72%);
-  transform:translateX(-120%);transition:transform .65s ease
-}
-.primary:hover{
-  transform:translateY(-2px);filter:saturate(1.08);
-  box-shadow:0 15px 32px rgba(37,99,235,.30),inset 0 1px 0 rgba(255,255,255,.25)
-}
-.primary:hover:before{transform:translateX(120%)}
-.primary:active{transform:translateY(0);box-shadow:0 7px 15px rgba(37,99,235,.22)}
-.primary:disabled{opacity:.65;transform:none;cursor:wait}
-.primary .btn-icon{
-  width:27px;height:27px;border-radius:9px;background:rgba(255,255,255,.16);
-  display:grid;place-items:center;font-size:13px
-}
-.quick{
-  background:linear-gradient(145deg,#eef4ff,#f8fbff);border:1px solid #dbe5f5;
-  border-radius:18px;padding:22px;min-height:100%
-}
-.quick-head{display:flex;align-items:center;gap:11px}
-.quick-head .qicon{width:40px;height:40px;border-radius:13px;background:#fff;display:grid;place-items:center;box-shadow:0 6px 18px rgba(37,99,235,.09)}
-.quick h3{margin:0;font-size:17px}.quick p{font-size:13px;color:#5b6a81;line-height:1.6}
-.examples{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}
-.ex{
-  background:#fff;border:1px solid #dce5f3;color:#274b7d;padding:13px 12px;
-  border-radius:12px;font-size:11px;font-weight:850;cursor:pointer;transition:.2s
-}
-.ex:hover{border-color:#8eabdf;box-shadow:0 7px 18px rgba(38,81,150,.08);transform:translateY(-2px)}
-#loading{display:none;text-align:center;padding:24px 12px;color:#2864df;font-weight:900}
-.dots{animation:blink 1.1s infinite}@keyframes blink{50%{opacity:.35}}
-.toolbar{display:none;margin:28px 0 13px;justify-content:space-between;align-items:center;gap:12px}
-.toolbar h2{margin:0;font-size:23px}.actions{display:flex;gap:8px}
-.secondary{background:white;border:1px solid #d8e1ee;color:#243b60}
-.results{display:none}
-.topstats{display:grid;grid-template-columns:1.15fr 1fr 1fr 1fr;gap:12px;margin-bottom:15px}
-.stat{padding:18px;border-radius:17px;background:#fff;border:1px solid var(--line);box-shadow:0 8px 25px rgba(16,36,70,.05)}
-.stat .num{font-size:28px;font-weight:950;color:var(--blue);margin-top:3px}.stat small{color:#718097;font-weight:700}
-.resultgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:15px}
-.card{padding:19px}.wide{grid-column:1/-1}
-.card h3{margin:0 0 9px;font-size:15px}.card p,.card li{color:#59687f;font-size:13px;line-height:1.6}
-.swot{display:grid;grid-template-columns:1fr 1fr;gap:11px}
-.sw{padding:15px;border-radius:13px;border:1px solid rgba(0,0,0,.035)}
-.s1{background:#eafaf4}.s2{background:#fff5e6}.s3{background:#edf3ff}.s4{background:#fff0f0}
-.gauge{height:9px;background:#e8edf5;border-radius:10px;overflow:hidden;margin:9px 0}
-.fill{height:100%;background:linear-gradient(90deg,#2563eb,#06b6d4);width:70%;transition:width .5s}
-.note{margin-top:15px;padding:13px;background:#fff8e8;border:1px solid #f3dfaa;border-radius:12px;color:#745615;font-size:12px}
-footer{text-align:center;padding:30px;color:#7a879a;font-size:12px}
-.validation{background:linear-gradient(180deg,#fbfdff,#fff)}
-.three{display:grid;grid-template-columns:repeat(3,1fr);gap:13px}
-.three ul{margin:8px 0;padding-left:18px}.three li{margin:5px 0}
-.deephead{display:flex;justify-content:space-between;align-items:center;gap:10px}
-.deephead h3{margin-bottom:4px}.deephead p{margin:0;color:#718097;font-size:12px}
-.pill{background:#eaf0ff;color:#315bd6;padding:7px 10px;border-radius:20px;font-size:11px;font-weight:900;white-space:nowrap}
-.ai-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:13px 0}
-.aiop{padding:15px;border-radius:13px;background:#f6f9ff;border:1px solid #e0e7f4}
-.aiop h4{margin:0 0 7px}.consensus{padding:17px;border-radius:14px;background:#eefaf7;border:1px solid #d7eee8}
-.consensus h4{margin-top:0}
-.mode-note{font-size:10px;color:#718097;margin:4px 2px 0}
-@media(max-width:850px){
-  .grid,.topstats,.resultgrid,.three,.ai-grid{grid-template-columns:1fr}
-  .wide{grid-column:auto}.hero h1{font-size:39px}.team{display:none}
-  .examples{grid-template-columns:1fr 1fr}
-}
-@media(max-width:520px){.examples{grid-template-columns:1fr}.actions{flex-wrap:wrap}.toolbar{align-items:flex-start;flex-direction:column}}
+*{box-sizing:border-box}body{margin:0;background:#f3f6fb;color:#14233d;font-family:Inter,Segoe UI,Arial,sans-serif}
+.top{height:72px;background:#102f68;color:white;display:flex;align-items:center;justify-content:space-between;padding:0 6%;box-shadow:0 4px 18px #0d23441c}
+.logo{font-size:25px;font-weight:900}.logo i{font-style:normal;color:#42d7d0}.brand{font-size:11px;letter-spacing:1px;opacity:.7}
+.wrap{max-width:1180px;margin:34px auto;padding:0 18px}.hero{display:flex;justify-content:space-between;align-items:end;margin-bottom:22px}.hero h1{font-size:38px;margin:0 0 7px}.hero p{margin:0;color:#64738b}.badge{background:#e6f7f6;color:#087e78;border-radius:999px;padding:9px 13px;font-size:12px;font-weight:800}
+.layout{display:grid;grid-template-columns:1fr 1fr;gap:20px}.card{background:#fff;border:1px solid #e1e8f2;border-radius:22px;padding:24px;box-shadow:0 12px 32px #163a6810}
+.card h2{font-size:18px;margin:0 0 5px}.sub{font-size:12px;color:#7a879b;margin-bottom:17px}
+label{display:block;font-size:11px;font-weight:900;letter-spacing:.7px;color:#53627a;margin:15px 0 7px}
+input,textarea{width:100%;border:1px solid #d9e1ed;border-radius:12px;padding:13px 14px;background:#fbfcff;color:#17243b;font:inherit;outline:none}
+textarea{height:102px;resize:vertical}input:focus,textarea:focus{border-color:#2676ef;box-shadow:0 0 0 3px #2676ef15}
+.quick{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:14px}.quick button{border:1px solid #dce4ef;background:#f8faff;border-radius:11px;padding:10px;text-align:left;font-weight:750;color:#30415b;cursor:pointer}.quick button:hover{border-color:#2676ef;background:#f0f6ff}
+.analyze{width:100%;margin-top:18px;padding:16px;border:0;border-radius:13px;background:linear-gradient(100deg,#135fe0,#18b6ed);color:white;font-weight:900;font-size:16px;cursor:pointer;box-shadow:0 9px 20px #1365df35}.analyze:disabled{opacity:.65;cursor:wait}
+.workflow{display:grid;gap:10px;margin-top:18px}.step{display:flex;gap:12px;align-items:center;padding:12px;border-radius:13px;background:#f7f9fd}.num{width:30px;height:30px;border-radius:9px;background:#e8f1ff;color:#1764ce;display:grid;place-items:center;font-weight:900}.step b{font-size:13px}.step span{display:block;font-size:11px;color:#78869a;margin-top:2px}
+.status{display:none;margin-top:14px;background:#edf6ff;border:1px solid #d7eaff;border-radius:13px;padding:13px;text-align:center;color:#1760aa;font-weight:750}.status.show{display:block}.spin{display:inline-block;width:9px;height:9px;border-radius:50%;background:#1aa8ed;animation:p 1s infinite;margin-right:7px}@keyframes p{50%{opacity:.25}}
+#results{display:none;margin-top:22px}.reporthead{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e8edf4;padding-bottom:17px;margin-bottom:15px}.reporthead h2{margin:0}.scorebox{background:#edf5ff;color:#145dc0;border-radius:15px;padding:10px 15px;text-align:center}.scorebox strong{font-size:25px;display:block}
+.report{display:grid;grid-template-columns:repeat(2,1fr);gap:13px}.box{border:1px solid #e3e9f2;border-radius:15px;padding:16px;background:#fff}.box h3{font-size:13px;margin:0 0 8px}.box p{margin:0;color:#59677d;line-height:1.55;font-size:13px}.full{grid-column:1/-1}
+.action{margin-top:15px;background:#102f68;color:#fff;border-radius:16px;padding:18px}.action h3{margin:0 0 8px}.action p{margin:0;line-height:1.55;color:#dbe7fa;font-size:13px}
+.footer{text-align:center;color:#8a96a9;font-size:11px;margin:28px}
+@media(max-width:800px){.layout,.report{grid-template-columns:1fr}.full{grid-column:auto}.hero{display:block}.badge{display:inline-block;margin-top:14px}}
 </style>
-
 </head>
 <body>
-<header><div class="brand">Vyapaar <span>Sathi</span></div><div class="team">TEAM DUKAN VISION • BBA AI PROJECT</div></header>
+<header class="top"><div class="logo">Vyapaar <i>Sathi</i></div><div class="brand">TEAM DUKAN VISION • BUSINESS VALIDATION LAB</div></header>
+<main class="wrap">
 <section class="hero">
-<div class="hero-inner">
-  <div class="badge">✦ AI BUSINESS IDEA VALIDATOR</div>
-  <h1>Turn your <span>business idea</span> into a smarter plan.</h1>
-  <p>Vyapaar Sathi helps first-time entrepreneurs move from a raw idea to structured business insights — customer problem, pricing, SWOT, marketing, risks and real-world validation steps.</p>
-  <div class="hero-points">
-    <div class="hero-point">🎯 Customer Fit</div>
-    <div class="hero-point">💰 Pricing</div>
-    <div class="hero-point">📊 SWOT</div>
-    <div class="hero-point">🧪 Validation Plan</div>
-    <div class="hero-point">🧠 Dual AI Perspective</div>
-  </div>
+<div><h1>Idea → Validation</h1><p>Not just an AI answer. A structured first-pass validation workflow for your business idea.</p></div>
+<div class="badge">● AI + Business Framework</div>
+</section>
+
+<section class="layout">
+<div class="card">
+<h2>Build your validation case</h2><div class="sub">Give the system the same information an early-stage founder would collect.</div>
+<label>BUSINESS IDEA</label>
+<textarea id="idea">Affordable healthy tiffin service for college students</textarea>
+<label>TARGET CUSTOMER</label><input id="customer" value="College students">
+<label>LOCATION</label><input id="location" value="Lucknow, Uttar Pradesh">
+<label>INVESTMENT BUDGET</label><input id="budget" value="₹50,000">
+<div class="quick">
+<button onclick="load('Tiffin Service','College students','Lucknow, Uttar Pradesh','₹50,000')">🍱 Tiffin Service</button>
+<button onclick="load('Hostel Laundry Service','College students in hostels','Lucknow, Uttar Pradesh','₹30,000')">🧺 Hostel Laundry</button>
+<button onclick="load('Pet Grooming at Home','Pet owners','Lucknow, Uttar Pradesh','₹40,000')">🐾 Pet Grooming</button>
+<button onclick="load('Student Skill Marketplace','College students','Lucknow, Uttar Pradesh','₹25,000')">🧑‍💻 Skill Marketplace</button>
+</div>
+<button id="btn" class="analyze" onclick="analyze()">✦ &nbsp; Run Validation &nbsp; →</button>
+<div id="status" class="status"><span class="spin"></span><span id="st">Building your validation report…</span></div>
+</div>
+
+<div class="card">
+<h2>What makes this a validation tool?</h2><div class="sub">The output is organised around business decisions, not an open-ended chat.</div>
+<div class="workflow">
+<div class="step"><div class="num">01</div><div><b>Customer & problem</b><span>Who is it for and what pain point needs proof?</span></div></div>
+<div class="step"><div class="num">02</div><div><b>Value & pricing</b><span>What is the offer and how could it earn?</span></div></div>
+<div class="step"><div class="num">03</div><div><b>Competitor landscape</b><span>What alternatives already serve the same customer?</span></div></div>
+<div class="step"><div class="num">04</div><div><b>SWOT & risk signals</b><span>What can help or block a small pilot?</span></div></div>
+<div class="step"><div class="num">05</div><div><b>Validation action</b><span>What should the founder test before scaling?</span></div></div>
+</div>
 </div>
 </section>
-<div class="wrap">
-<div class="panel">
-<div class="grid">
-<div>
-<div class="form-title"><div class="icon">🚀</div><div><h2>Validate your business idea</h2></div></div>
-<div class="form-sub">Give us four simple inputs. Vyapaar Sathi handles the structured analysis.</div>
-<label>Business Idea *</label><textarea id="idea" placeholder="e.g. Subscription-based laundry service for hostel students"></textarea>
-<label>Target Customer</label><input id="customer" placeholder="e.g. Hostel students">
-<label>Location</label><input id="location" placeholder="e.g. Lucknow, Uttar Pradesh">
-<label>Investment Budget</label><input id="budget" placeholder="e.g. ₹1,00,000">
-<button class="primary" id="analyzeBtn" onclick="analyze()"><span class="btn-icon">✦</span><span>Analyze with AI</span><span style="font-size:17px;margin-left:2px">→</span></button>
-</div>
-<div class="quick"><div class="quick-head"><div class="qicon">⚡</div><div><h3>Judge Mode</h3><div style="font-size:11px;color:#718097;margin-top:2px">Try a live idea in seconds</div></div></div><p>Ask a judge for <b>any business idea</b>. Use the quick examples below or type their idea live.</p>
-<div class="examples">
-<div class="ex" onclick="fillDemo('Affordable healthy tiffin service for college students','College students','Lucknow, Uttar Pradesh','₹50,000')">Tiffin Service</div>
-<div class="ex" onclick="fillDemo('Subscription laundry service for hostel students','Hostel students','Lucknow, Uttar Pradesh','₹1,00,000')">Hostel Laundry</div>
-<div class="ex" onclick="fillDemo('Affordable pet grooming service','Pet owners','Lucknow, Uttar Pradesh','₹1,50,000')">Pet Grooming</div>
-<div class="ex" onclick="fillDemo('Student skill marketplace connecting students with local clients','College students','Lucknow, Uttar Pradesh','₹75,000')">Skill Marketplace</div>
-</div>
-<p style="margin-top:16px"><b>Tip:</b> Let the judge choose the idea. This demonstrates that the system is not limited to one demo case.</p></div>
-</div>
-<div id="loading">⚡ AI is analysing the idea <span class="dots">•••</span><br><small>Understanding context → generating insights → formatting report</small></div>
-</div>
 
-<div class="toolbar" id="toolbar"><h2>AI Business Report</h2><div class="actions"><button class="secondary" onclick="window.print()">🖨 Print / Save PDF</button><button class="secondary" onclick="resetApp()">↻ New Idea</button></div></div>
-<div class="results" id="results">
-<div class="topstats">
-<div class="stat"><small>Preliminary Score</small><div class="num" id="score">—</div><div class="gauge"><div class="fill" id="fill"></div></div></div>
-<div class="stat"><small>Location</small><div class="num" id="statLocation" style="font-size:20px">—</div></div>
-<div class="stat"><small>Budget</small><div class="num" id="statBudget" style="font-size:20px">—</div></div>
-<div class="stat"><small>Analysis</small><div class="num" style="font-size:20px;color:#10a77d">AI</div></div>
+<section id="results">
+<div class="card">
+<div class="reporthead"><div><h2>Validation Report</h2><div class="sub" style="margin:5px 0 0">Structured preliminary assessment • competitor alternatives included • not a guarantee of business success</div></div><div class="scorebox"><strong id="score">—</strong><small>Validation score</small></div></div>
+<div class="report" id="report"></div>
 </div>
-<div class="resultgrid">
-<div class="card"><h3>🎯 Target Market</h3><p id="market"></p></div>
-<div class="card"><h3>🔴 Customer Problem</h3><p id="problem"></p></div>
-<div class="card"><h3>💡 Value Proposition</h3><p id="value"></p></div>
-<div class="card"><h3>💰 Pricing & Revenue Model</h3><p id="pricing"></p></div>
-<div class="card wide"><h3>📊 SWOT Analysis</h3><div class="swot"><div class="sw s1"><b>Strengths</b><p id="strength"></p></div><div class="sw s2"><b>Weaknesses</b><p id="weakness"></p></div><div class="sw s3"><b>Opportunities</b><p id="opportunity"></p></div><div class="sw s4"><b>Threats</b><p id="threat"></p></div></div></div>
-<div class="card"><h3>📣 Marketing Strategy</h3><p id="marketing"></p></div>
-<div class="card"><h3>⚠️ Business Risks</h3><p id="risks"></p></div>
-<div class="card"><h3>🤖 Assessment</h3><p id="scoretext"></p></div>
-<div class="card"><h3>🚀 AI Recommendation</h3><p id="recommendation"></p></div>
-</div>
-<div class="note">⚠️ Preliminary AI analysis only. Real customer interviews, competitor research and market validation are required before investment.</div>
-</div>
-</div>
-<footer>Vyapaar Sathi • Team Dukan Vision</footer>
+</section>
+<div class="footer">Vyapaar Sathi • Team Dukan Vision • KMCLU AI MANTHAN 1.0</div>
+</main>
 
 <script>
-function fillDemo(i,c,l,b){idea.value=i;customer.value=c;location.value=l;budget.value=b}
-function put(id,v){document.getElementById(id).textContent=v||"Not available"}
-async function analyze(){
- if(!idea.value.trim()){alert("Enter a business idea first.");return}
- analyzeBtn.disabled=true;loading.style.display="block";results.style.display="none";toolbar.style.display="none";
- const payload={idea:idea.value.trim(),customer:customer.value.trim(),location:location.value.trim(),budget:budget.value.trim()};
- try{
-  const r=await fetch("/api/analyze",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
-  const d=await r.json();if(!r.ok)throw new Error(d.error||"AI request failed");
-  ["market","problem","value","pricing","strength","weakness","opportunity","threat","marketing","risks","scoretext","recommendation"].forEach(k=>put(k,d[k]));
-  const score=Math.max(0,Math.min(100,Number(d.score)||70));document.getElementById("score").textContent=score+"/100";document.getElementById("fill").style.width=score+"%";
-  statLocation.textContent=payload.location||"Not set";statBudget.textContent=payload.budget||"Not set";
-  loading.style.display="none";toolbar.style.display="flex";results.style.display="block";
-  results.scrollIntoView({behavior:"smooth"});
- }catch(e){loading.style.display="none";alert(e.message)}
- finally{analyzeBtn.disabled=false}
+function load(a,c,l,b){idea.value=a;customer.value=c;location.value=l;budget.value=b}
+function clean(x){return String(x??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]) )}
+function fallback(a,c,l,b){return {market:`Targets ${c} in ${l}. Validate demand with a small local pilot before committing the full budget.`,problem:`The customer may have a convenience, affordability or quality gap. The exact pain point should be confirmed through interviews and pilot usage.`,value:`A focused, affordable service with consistent quality and convenient delivery can create value if customers are willing to pay.`,pricing:`Test 2–3 price points against local alternatives and track contribution margin. Planned budget: ${b}.`,strength:`Clear customer segment, understandable problem and a concept that can be piloted on a small scale.`,weakness:`Demand, repeat usage and unit economics are not yet proven.`,opportunity:`Campus, hostel, WhatsApp and referral channels can provide low-cost early validation.`,threat:`Existing local alternatives, price sensitivity and service-quality issues may affect adoption.`,marketing:`Run a small pilot, collect reviews, use student groups and referrals, and measure repeat customers.`,risks:`Do not deploy the full budget initially. Measure acquisition cost, margin, repeat rate and complaints.`,score:72,scoretext:`Promising for a pilot; evidence from real customers is still required.`,recommendation:`Run a 7–14 day pilot, test pricing, measure repeat demand and unit economics, then decide whether to scale.`}}
+function norm(d){return {market:d.market||'',competitors:d.competitors||d.competitor_analysis||d.competitor_landscape||'',competitor_sources:d.competitor_sources||[],problem:d.problem||'',value:d.value||d.value_proposition||'',pricing:d.pricing||d.pricing_revenue||'',strength:d.strength||d.strengths||'',weakness:d.weakness||d.weaknesses||'',opportunity:d.opportunity||d.opportunities||'',threat:d.threat||d.threats||'',marketing:d.marketing||'',risks:d.risks||'',score:d.score||72,scoretext:d.scoretext||d.score_text||'',recommendation:d.recommendation||d.final_recommendation||''}}
+function show(d,source){
+d=norm(d);score.textContent=d.score+'/100';
+let a=[['🎯 Market',d.market],['Problem',d.problem],['💎 Value Proposition',d.value],['💰 Pricing & Revenue',d.pricing],['💪 Strength',d.strength],['⚠️ Weakness',d.weakness],['🌱 Opportunity',d.opportunity],['🛡️ Threat',d.threat],['📣 Marketing',d.marketing],['Risk Signals',d.risks]];
+let competitors=Array.isArray(d.competitors)?d.competitors:[];
+let competitorHTML=competitors.length
+? `<div class="box full"><h3>🏪 Live Competitor Landscape</h3>
+<p style="margin-bottom:12px;color:#68768b">Fresh public-web signals for the selected location. Verify prices/availability before making a business decision.</p>
+<div style="display:grid;gap:10px">${competitors.map(c=>`<div style="border:1px solid #e3e9f2;border-radius:12px;padding:12px;background:#f9fbff">
+<b>${clean(c.name)}</b> <span style="font-size:11px;color:#6d7b90">${clean(c.type)}</span>
+<p style="margin-top:5px">${clean(c.offer)}</p>
+<p><b>Price:</b> ${clean(c.price)} &nbsp; <b>Gap:</b> ${clean(c.differentiation)}</p>
+</div>`).join('')}</div>
+${Array.isArray(d.competitor_sources)&&d.competitor_sources.length?`<p style="margin-top:12px"><b>Sources:</b> ${d.competitor_sources.map(s=>`<a href="${clean(s.url)}" target="_blank" rel="noopener">${clean(s.title)}</a>`).join(' · ')}</p>`:''}
+</div>`
+: `<div class="box full"><h3>🏪 Competitor Landscape</h3><p>${clean(d.competitors||'No verified competitor data returned. Run the analysis again to perform the live competitor check.')}</p></div>`;
+report.innerHTML=competitorHTML+a.map(x=>`<div class="box"><h3>${x[0]}</h3><p>${clean(x[1])}</p></div>`).join('')+
+`<div class="action full"><h3>🚀 Decision Focus</h3><p>${clean(d.scoretext)}</p><br><h3>7–14 Day Validation Action</h3><p>${clean(d.recommendation)}</p></div>`;
+results.style.display='block';results.scrollIntoView({behavior:'smooth'});
 }
-function resetApp(){results.style.display="none";toolbar.style.display="none";idea.value="";customer.value="";location.value="";budget.value="";window.scrollTo({top:0,behavior:"smooth"})}
+async function analyze(){
+let p={idea:idea.value.trim(),customer:customer.value.trim(),location:location.value.trim(),budget:budget.value.trim(),mode:'quick',include_competitors:true};
+if(!p.idea){alert('Please enter a business idea.');return}
+btn.disabled=true;status.classList.add('show');st.textContent='Checking market, pricing, risks and live competitor signals…';
+let ctl=new AbortController(), timer=setTimeout(()=>ctl.abort(),16000);
+try{
+let r=await fetch('/api/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(p),signal:ctl.signal});
+let t=await r.text(),d;try{d=JSON.parse(t)}catch(e){throw Error('Invalid server response')}
+if(!r.ok||d.error)throw Error(d.error||('Server error '+r.status));
+show(d,'AI analysis • structured validation');
+}catch(e){console.warn(e);st.textContent='AI response delayed — preparing validation preview…';await new Promise(x=>setTimeout(x,350));show(fallback(p.idea,p.customer,p.location,p.budget),'Validation preview • fallback mode');}
+finally{clearTimeout(timer);btn.disabled=false;setTimeout(()=>status.classList.remove('show'),800)}
+}
 </script>
-</body></html>
+</body>
+</html>
