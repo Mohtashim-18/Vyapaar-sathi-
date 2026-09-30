@@ -121,7 +121,7 @@ Generate the structured preliminary validation report."""
 
     try:
         r = requests.post(
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent",
             params={"key": key},
             json=body,
             timeout=45
@@ -278,7 +278,7 @@ def synthesize(gemini, openai):
 
     try:
         r = requests.post(
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent",
             params={"key": key},
             json=body,
             timeout=45
@@ -317,7 +317,7 @@ def test_gemini():
     }
     try:
         r = requests.post(
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent",
             params={"key": key}, json=body, timeout=30
         )
         if not r.ok:
