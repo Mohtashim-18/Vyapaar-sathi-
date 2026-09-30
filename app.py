@@ -102,35 +102,44 @@ def log_safe(label, message):
     print(f"[Vyapaar Sathi] {label}: {message}", flush=True)
 
 def gemini_request(body, key, label="GEMINI", attempts=2, timeout=30):
-    """Call Gemini with bounded retries for transient 408/429/5xx/timeouts."""
-    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent"
+    """Call Gemini with retries and model fallback for transient 408/429/5xx/timeouts."""
+    model_candidates = ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.5-flash-lite"]
     last_error = "Unknown Gemini error"
 
-    for attempt in range(1, attempts + 1):
-        try:
-            r = requests.post(
-                url,
-                params={"key": key},
-                json=body,
-                timeout=timeout
-            )
-            if r.ok:
-                return r, None
+    for model_name in model_candidates:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent"
+        for attempt in range(1, attempts + 1):
+            try:
+                r = requests.post(url, params={"key": key}, json=body, timeout=timeout)
+                if r.ok:
+                    log_safe(f"{label}_OK", f"model={model_name}")
+                    return r, None
 
-            last_error = api_error(r)
-            retryable = r.status_code in (408, 429) or 500 <= r.status_code <= 599
-            if not retryable or attempt == attempts:
-                log_safe(f"{label}_ERROR", last_error)
-                return None, last_error
+                last_error = api_error(r)
+                retryable = r.status_code in (408, 429) or 500 <= r.status_code <= 599
+                if not retryable:
+                    log_safe(f"{label}_ERROR", f"model={model_name}; {last_error}")
+                    break
 
-        except requests.exceptions.Timeout as e:
-            last_error = f"Gemini timeout after {timeout}s: {str(e)[:120]}"
-        except requests.exceptions.RequestException as e:
-            last_error = f"Gemini network error: {str(e)[:160]}"
+                if attempt < attempts:
+                    delay = 2 ** (attempt - 1) + 0.5
+                    log_safe(f"{label}_RETRY", f"model={model_name}; attempt {attempt}/{attempts}; retrying in {delay:.1f}s")
+                    time.sleep(delay)
+                else:
+                    log_safe(f"{label}_MODEL_FALLBACK", f"model={model_name} unavailable; trying next model")
 
-        delay = 2 ** (attempt - 1) + 0.5
-        log_safe(f"{label}_RETRY", f"attempt {attempt}/{attempts} failed; retrying in {delay:.1f}s")
-        time.sleep(delay)
+            except requests.exceptions.Timeout as e:
+                last_error = f"Gemini timeout after {timeout}s: {str(e)[:120]}"
+                if attempt < attempts:
+                    delay = 2 ** (attempt - 1) + 0.5
+                    log_safe(f"{label}_RETRY", f"model={model_name}; timeout; retrying in {delay:.1f}s")
+                    time.sleep(delay)
+                else:
+                    log_safe(f"{label}_MODEL_FALLBACK", f"model={model_name} timed out; trying next model")
+            except requests.exceptions.RequestException as e:
+                last_error = f"Gemini network error: {str(e)[:160]}"
+                log_safe(f"{label}_MODEL_FALLBACK", f"model={model_name}; {last_error}")
+                break
 
     log_safe(f"{label}_ERROR", last_error)
     return None, last_error
